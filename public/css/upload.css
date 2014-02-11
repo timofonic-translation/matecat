@@ -775,7 +775,7 @@ header{background:#6d6e71;border-bottom:1px solid #333;padding:0px 0 2px 0;margi
         column-count: 5;	
         -moz-column-count: 5;
         width:100% !important;
-        height: 476px;
+/*        height: 476px; */
         margin-top:20px;
 		}
 
@@ -828,7 +828,7 @@ header{background:#6d6e71;border-bottom:1px solid #333;padding:0px 0 2px 0;margi
 /*
 	height:18px;
 */
-	width:200px;
+	width:100%;
 	padding:1px 0 1px 0;
 	overflow:hidden !important;
 	border-bottom:1px dotted #ccc;
