@@ -15,14 +15,14 @@ UI = {
 			$('#jobMenu .currSegment').hide();
 		}
 		var menuHeight = $('#jobMenu').height();
-		var startTop = 47 - menuHeight;
+//		var startTop = 47 - menuHeight;
 		$('#jobMenu').css('top', (47 - menuHeight) + "px");
 
 		if ($('#jobMenu').hasClass('open')) {
 			$('#jobMenu').animate({top: "-=" + menuHeight + "px"}, 500).removeClass('open');
 		} else {
 			$('#jobMenu').animate({top: "+=" + menuHeight + "px"}, 300, function() {
-				$('body').on('click', function(e) {
+				$('body').on('click', function() {
 					if ($('#jobMenu').hasClass('open')) {
 						UI.toggleFileMenu();
 					}
@@ -30,8 +30,8 @@ UI = {
 			}).addClass('open');
 		}
 	},
-	activateSegment: function() {
-		this.createFooter(this.currentSegment);
+	activateSegment: function(isDifferent) {
+		this.createFooter(this.currentSegment, isDifferent);
 		this.createButtons();
 		this.createHeader();
 	},
@@ -49,18 +49,19 @@ UI = {
 	},
 	changeStatus: function(ob, status, byStatus) {
 		var segment = (byStatus) ? $(ob).parents("section") : $('#' + $(ob).data('segmentid'));
+		segment_id = $(segment).attr('id').split('-')[1];
 		$('.percentuage', segment).removeClass('visible');
 		if (!segment.hasClass('saved'))
-			this.setTranslation(segment, status);
+			this.setTranslation($(segment).attr('id').split('-')[1], status);
 		segment.removeClass('saved');
-		this.setContribution(segment, status, byStatus);
-		this.setContributionMT(segment, status, byStatus);
+		this.setContribution(segment_id, status, byStatus);
+		this.setContributionMT(segment_id, status, byStatus);
 		this.getNextSegment(this.currentSegment, 'untranslated');
 		if(!this.nextUntranslatedSegmentId) {
 			$(window).trigger({
 				type: "allTranslated"
 			});
-		};
+		}
 		$(window).trigger({
 			type: "statusChanged",
 			segment: segment,
@@ -71,9 +72,11 @@ UI = {
 //		console.log('UI.hasToBeRerendered: ', this.hasToBeRerendered);
 //		console.log(this.initSegNum + ' - ' + this.numOpenedSegments + ' - ' + (this.initSegNum/this.numOpenedSegments));
 //		if (($('section').length > 500)||(this.numOpenedSegments > 2)) {
+/*
 		if (($('section').length > 500)||((this.initSegNum/this.numOpenedSegments) < 2)||(this.hasToBeRerendered)) {
 			UI.reloadToSegment(UI.currentSegmentId);
 		}
+*/		
 	},
 	checkIfFinished: function(closing) {
 		if (((this.progress_perc != this.done_percentage) && (this.progress_perc == '100')) || ((closing) && (this.progress_perc == '100'))) {
@@ -110,7 +113,7 @@ UI = {
 			return true;
 		}
 
-		var closeStart = new Date();
+//		var closeStart = new Date();
 		this.autoSave = false;
 
 		$(window).trigger({
@@ -129,6 +132,7 @@ UI = {
 			this.saveSegment(segment);
 		}
 		this.deActivateSegment(byButton);
+		this.removeGlossaryMarksFormSource();
 
 		this.lastOpenedEditarea.attr('contenteditable', 'false');
 		this.body.removeClass('editing');
@@ -150,16 +154,28 @@ UI = {
 		this.saveInUndoStack('copysource');
 		$(".editarea", this.currentSegment).text(source_val).keyup().focus();
 		this.saveInUndoStack('copysource');
-		$(".editarea", this.currentSegment).effect("highlight", {}, 1000);
+//		$(".editarea", this.currentSegment).effect("highlight", {}, 1000);
 		$(window).trigger({
 			type: "sourceCopied",
 			segment: segment
 		});
-		this.currentSegment.addClass('modified');
+		this.highlightEditarea();
+
 		this.currentSegmentQA();
 		this.setChosenSuggestion(0);
 		this.lockTags(this.editarea);
 	},
+	highlightEditarea: function(seg) {
+		segment = seg || this.currentSegment;
+		segment.addClass('highlighted1');
+		setTimeout(function() {
+			$('.highlighted1').addClass('modified highlighted2');
+		}, 300);
+		setTimeout(function() {
+			$('.highlighted1, .highlighted2').removeClass('highlighted1 highlighted2');
+		}, 2000);		
+	},
+
 	confirmDownload: function(res) {
 		if (res) {
 			if (UI.isChrome) {
@@ -184,20 +200,72 @@ UI = {
 		$('#segment-' + this.currentSegmentId + '-buttons').empty().append(buttons);
 		$('#segment-' + this.currentSegmentId + '-buttons').before('<p class="warnings"></p>');
 	},
-	createFooter: function(segment) {
-		if ($('.matches .overflow', segment).text() !== '')
-			return false;
+	createFooter: function(segment, isDifferent) {
+		isDifferent = (typeof isDifferent == 'undefined')? true : isDifferent;
+		if ($('.matches .overflow', segment).text() !== '') {
+			if(!isDifferent) {
+				$('.matches .overflow', segment).empty();
+				return false;
+			}		
+		}
 		if ($('.footer', segment).text() !== '')
 			return false; 
 
-		var footer = '<ul class="submenu"><li class="active tab-switcher-tm" id="segment-' + this.currentSegmentId + '-tm"><a tabindex="-1" href="#">Translation matches</a></li><li class="tab-switcher-cc" id="segment-' + this.currentSegmentId + '-cc"><a tabindex="-1" href="#">Concordance</a></li><li class="tab-switcher-gl" id="segment-' + this.currentSegmentId + '-gl"><a tabindex="-1" href="#">Glossary&nbsp;<span class="number"></span></a></li></ul><div class="tab sub-editor matches" id="segment-' + this.currentSegmentId + '-matches"><div class="overflow"></div></div><div class="tab sub-editor concordances" id="segment-' + this.currentSegmentId + '-concordances"><div class="overflow"><div class="cc-search"><div class="input search-source" contenteditable="true" /><div class="input search-target" contenteditable="true" /></div><div class="results"></div></div></div><div class="tab sub-editor glossary" id="segment-' + this.currentSegmentId + '-glossary"><div class="overflow"><div class="gl-search"><div class="input search-source" contenteditable="true" /><div class="input search-target" contenteditable="true" /><!-- a class="search-glossary" href="#"></a --><a class="set-glossary disabled" href="#"></a><div class="comment"><a href="#">(+) Comment</a><div class="input gl-comment" contenteditable="true" /></div></div><div class="results"></div></div></div>';
-		$('.footer', segment).html(footer);
+		var footer =	'<ul class="submenu">' +
+					'	<li class="active tab-switcher-tm" id="segment-' + this.currentSegmentId + '-tm">' +
+					'		<a tabindex="-1" href="#">Translation matches</a>' +
+					'	</li>' +
+					'	<li class="tab-switcher-cc" id="segment-' + this.currentSegmentId + '-cc">' +
+					'		<a tabindex="-1" href="#">Concordance</a>' +
+					'	</li>' +
+					'	<li class="tab-switcher-gl" id="segment-' + this.currentSegmentId + '-gl">' +
+					'		<a tabindex="-1" href="#">Glossary&nbsp;<span class="number"></span></a>' +
+					'	</li>' +
+					'	<li class="tab-switcher-al" id="segment-' + this.currentSegmentId + '-al">' +
+					'		<a tabindex="-1" href="#">Translation conflicts&nbsp;<span class="number"></span></a>' +
+					'	</li>' +
+					'</ul>' +
+					'<div class="tab sub-editor matches" id="segment-' + this.currentSegmentId + '-matches">' +
+					'	<div class="overflow"></div>' +
+					'</div>' +
+					'<div class="tab sub-editor concordances" id="segment-' + this.currentSegmentId + '-concordances">' +
+					'	<div class="overflow">' + 
+						((config.tms_enabled)? '<div class="cc-search"><div class="input search-source" contenteditable="true" /><div class="input search-target" contenteditable="true" /></div>' : '<ul class="graysmall message"><li>Concordance is not available when the TM feature is disabled</li></ul>') + 
+					'		<div class="results"></div>' +
+					'	</div>' +
+					'</div>' +
+					'<div class="tab sub-editor glossary" id="segment-' + this.currentSegmentId + '-glossary">' +
+					'	<div class="overflow">' + 
 
+					((config.tms_enabled)?
+					'		<div class="gl-search">' +
+					'			<div class="input search-source" contenteditable="true" />' +
+					'				<div class="input search-target" contenteditable="true" />' +
+					'					<!-- a class="search-glossary" href="#"></a --><a class="set-glossary disabled" href="#"></a>' +
+					'					<div class="comment">' +
+					'						<a href="#">(+) Comment</a>' +
+					'						<div class="input gl-comment" contenteditable="true" /></div>' +
+					'					</div>' +
+					'					<div class="results"></div>' +
+					'				</div>' +
+					'			</div>' +
+					'		</div>' : '<ul class="graysmall message"><li>Glossary is not available when the TM feature is disabled</li></ul>') +
+					'	</div>' +
+					'</div>'+
+					'<div class="tab sub-editor alternatives" id="segment-' + this.currentSegmentId + '-alternatives">' +
+					'	<div class="overflow"></div>' +
+					'</div>';
+		$('.footer', segment).html(footer);
 		if (($(segment).hasClass('loaded')) && (segment === this.currentSegment) && ($(segment).find('.matches .overflow').text() === '')) {
-			
-			$('.sub-editor.matches .overflow .graysmall.message', segment).remove();
-			$('.sub-editor.matches .overflow', segment).append('<ul class="graysmall message"><li>Sorry, we can\'t help you this time. Check if the language pair is correct. If not, create the project again.</li></ul>');
+			if(!isDifferent) return false;
+			var d = JSON.parse(localStorage.getItem('contribution-' + config.job_id + '-' + $(segment).attr('id').split('-')[1]));
+//			console.log('li prendo dal local storage');
+			UI.processContributions(d, segment);
+
+//			$('.sub-editor.matches .overflow .graysmall.message', segment).remove();
+//			$('.sub-editor.matches .overflow', segment).append('<ul class="graysmall message"><li>Sorry, we can\'t help you this time. Check if the language pair is correct. If not, create the project again.</li></ul>');
 		}
+
 	},
 	createHeader: function() {
 		if ($('h2.percentuage', this.currentSegment).length) {
@@ -205,11 +273,16 @@ UI = {
 		}
 		var header = '<h2 title="" class="percentuage"><span></span></h2><a href="#" id="segment-' + this.currentSegmentId + '-close" class="close" title="Close this segment"></a><a href="/referenceFile/' + config.job_id + '/' + config.password + '/' + this.currentSegmentId + '" id="segment-' + this.currentSegmentId + '-context" class="context" title="Open context" target="_blank">Context</a>';
 		$('#' + this.currentSegment.attr('id') + '-header').html(header);
-	},
+
+        if ( this.currentSegment.data( 'autopropagated' ) && !$( '.header .repetition', this.currentSegment ).length ) {
+            $( '.header', this.currentSegment ).prepend( '<span class="repetition">Autopropagated</span>' );
+        }
+
+    },
 	createJobMenu: function() {
 		var menu = '<nav id="jobMenu" class="topMenu">' +
 				'    <ul>';
-		$.each(config.firstSegmentOfFiles, function(index) {
+		$.each(config.firstSegmentOfFiles, function() {
 			menu += '<li data-file="' + this.id_file + '" data-segment="' + this.first_segment + '"><span class="' + UI.getIconClass(this.file_name.split('.')[this.file_name.split('.').length -1]) + '"></span><a href="#" title="' + this.file_name + '" >' + this.file_name + '</a></li>';
 		});
 
@@ -226,19 +299,20 @@ UI = {
 */
 	},
 	displaySurvey: function(s) {
-		if(this.surveyDisplayed) return;
-		survey = '<div class="modal survey" data-type="view">' +
-				'	<div class="popup-outer"></div>' +
-				'	<div class="popup">' +
-				'		<a href="#" class="x-popup"></a>' +
-				'		<h1>Translation Completed - Take a Survey</h1>' +
-				'		<div class="popup-box">' +
-				'			<iframe src="' + s + '" width="100%" height="670" frameborder="0" marginheight="0" marginwidth="0">Loading ...</iframe>' +
-				'		</div>' +
-				'	</div>' +
-				'</div>';	
-		this.body.append(survey);
-		$('.modal.survey').show();
+        if(this.surveyDisplayed) return;
+        survey = '<div class="modal survey" data-type="view">' +
+                '	<div class="popup-outer"></div>' +
+                '	<div class="popup survey">' +
+                '		<a href="#" class="x-popup"></a>' +
+                '		<h1>Translation Completed - Take a Survey</h1>' +
+                '		<p class="surveynotice">To stop displaying the survey, click on the <b>X</b> icon on the top right corner of this popup.</p>' +
+                '		<div class="popup-box">' +
+                '			<iframe src="' + s + '" width="100%" height="670" frameborder="0" marginheight="0" marginwidth="0">Loading ...</iframe>' +
+                '		</div>' +
+                '	</div>' +
+                '</div>';
+        this.body.append(survey);
+        $('.modal.survey').show();
 	},
 	surveyAlreadyDisplayed: function() {
 		if(typeof $.cookie('surveyedJobs') != 'undefined') {
@@ -247,7 +321,7 @@ UI = {
 			if(config.survey === surv) {
 				jobs = $.cookie('surveyedJobs').split('||')[1].split(',');
 				var found = false;
-				$.each(jobs, function(index) {
+				$.each(jobs, function() {
 					if(this == config.job_id) {
 						found = true;
 					}
@@ -350,21 +424,8 @@ UI = {
 		this.firstSegment = s.first();
 		this.lastSegment = s.last();
 	},
-	setSegmentPointer: function() {
-		if ($('.editor').length) {
-			if ($('.editor').isOnScreen()) {
-				$('#segmentPointer').hide();
-			} else {
-				if ($(window).scrollTop() > $('.editor').offset().top) {
-					$('#segmentPointer').removeClass('down').css('margin-top', '-10px').addClass('up').show();
-				} else {
-					$('#segmentPointer').removeClass('up').addClass('down').css('margin-top', ($(window).height() - 140) + 'px').show();
-				}
-			}
-		}
-	},
 	detectRefSegId: function(where) {
-		var step = this.moreSegNum;
+//		var step = this.moreSegNum;
 		var seg = (where == 'after') ? $('section').last() : (where == 'before') ? $('section').first() : '';
 		var segId = (seg.length) ? seg.attr('id').split('-')[1] : 0;
 		return segId;
@@ -425,6 +486,7 @@ UI = {
 		if (where == 'before') {
 			$("section").each(function() {
 				if ($(this).offset().top > $(window).scrollTop()) {
+//				if ($(this).offset().top > $(window).scrollTop()) {
 					UI.segMoving = $(this).attr('id').split('-')[1];
 					return false;
 				}
@@ -442,9 +504,12 @@ UI = {
 				action: 'getSegments',
 				jid: config.job_id,
 				password: config.password,
-				step: 50,
+				step: UI.moreSegNum,
 				segment: segId,
 				where: where
+			},
+			error: function() {
+				UI.failedConnection(0, 'getMoreSegments');
 			},
 			success: function(d) {
 				UI.getMoreSegments_success(d);
@@ -479,8 +544,8 @@ UI = {
 			}
 
 		}
-		if (where == 'after') {
-		}
+//		if (where == 'after') {
+//		}
 		if (d.data.files.length === 0) {
 			if (where == 'after')
 				this.noMoreSegmentsAfter = true;
@@ -491,21 +556,33 @@ UI = {
 		this.loadingMore = false;
 		this.setWaypoints();
 	},
-	getNextSegment: function(segment, status) {
+	getNextSegment: function(segment, status) {//console.log('getNextSegment: ', segment);
 		var seg = this.currentSegment;
 
 		var rules = (status == 'untranslated') ? 'section.status-draft:not(.readonly), section.status-rejected:not(.readonly), section.status-new:not(.readonly)' : 'section.status-' + status + ':not(.readonly)';
 		var n = $(seg).nextAll(rules).first();
+//		console.log('$(seg).nextAll().length: ', $(seg).nextAll().length);
+//		console.log('n.length 1: ', n.length);
 		if (!n.length) {
 			n = $(seg).parents('article').next().find(rules).first();
 		}
-		if (n.length) {
+//		console.log('n.length 2: ', n.length);
+//		console.log('UI.nextUntranslatedSegmentIdByServer: ', UI.nextUntranslatedSegmentIdByServer);
+//		console.log('UI.noMoreSegmentsAfter: ', UI.noMoreSegmentsAfter);
+		if (n.length) { // se ci sono sotto segmenti caricati con lo status indicato
+//			console.log('1');
 			this.nextUntranslatedSegmentId = $(n).attr('id').split('-')[1];
-		} else if ((UI.nextUntranslatedSegmentIdByServer) && (!UI.noMoreSegmentsAfter)) {
-			this.nextUntranslatedSegmentId = UI.nextUntranslatedSegmentIdByServer;
 		} else {
-			this.nextUntranslatedSegmentId = 0;
+			this.nextUntranslatedSegmentId = UI.nextUntranslatedSegmentIdByServer;			
 		}
+//		} else if ((UI.nextUntranslatedSegmentIdByServer) && (!UI.noMoreSegmentsAfter)) {
+//			console.log('2');
+//			this.nextUntranslatedSegmentId = UI.nextUntranslatedSegmentIdByServer;
+//		} else {
+//			console.log('3');
+//			this.nextUntranslatedSegmentId = 0;
+//		}
+//		console.log('UI.nextUntranslatedSegmentId: ', UI.nextUntranslatedSegmentId);
 
 		var i = $(seg).next();
 		if (!i.length) {
@@ -556,6 +633,9 @@ UI = {
 				step: step,
 				segment: seg,
 				where: where
+			},
+			error: function() {
+				UI.failedConnection(0, 'getSegments');
 			},
 			success: function(d) {
 				UI.getSegments_success(d, options);
@@ -613,9 +693,13 @@ UI = {
 			}
 		}
 		$('#outer').removeClass('loading loadingBefore');
+		if(options.highlight) {
+			UI.highlightEditarea($('#segment-' + options.segmentToScroll));
+		}
 		this.loadingMore = false;
 		this.setWaypoints();
 		this.markTags();
+		this.checkPendingOperations();
 	},
 	getSegmentSource: function(seg) {
 		segment = (typeof seg == 'undefined') ? this.currentSegment : seg;
@@ -639,6 +723,9 @@ UI = {
 					last_timestamp: lastUpdateRequested.getTime(),
 					first_segment: $('section').first().attr('id').split('-')[1],
 					last_segment: $('section').last().attr('id').split('-')[1]
+				},
+				error: function() {
+					UI.failedConnection(0, 'getUpdatedTranslations');
 				},
 				success: function(d) {
 					UI.lastUpdateRequested = new Date();
@@ -681,6 +768,18 @@ UI = {
 			}
 		}
 	},
+	gotoNextUntranslatedSegment: function() {console.log('gotoNextUntranslatedSegment');
+		if (!UI.segmentIsLoaded(UI.nextUntranslatedSegmentId)) {
+			if (!UI.nextUntranslatedSegmentId) {
+				UI.closeSegment(UI.currentSegment);
+			} else {
+				UI.reloadWarning();
+			}
+		} else {
+			$("#segment-" + UI.nextUntranslatedSegmentId + " .editarea").trigger("click");
+		}
+	},
+	
 	gotoOpenSegment: function() {
 		if ($('#segment-' + this.currentSegmentId).length) {
 			this.scrollSegment(this.currentSegment);
@@ -744,7 +843,7 @@ UI = {
 		$(ed).focus();
 	},
 	millisecondsToTime: function(milli) {
-		var milliseconds = milli % 1000;
+//		var milliseconds = milli % 1000;
 		var seconds = Math.round((milli / 1000) % 60);
 		var minutes = Math.floor((milli / (60 * 1000)) % 60);
 		return [minutes, seconds];
@@ -754,8 +853,14 @@ UI = {
 		$('#spellCheck .words').remove();
 	},
 	openSegment: function(editarea, operation) {
-		var segment = $('#segment-' + $(editarea).attr('data-sid'));
+//		if(UI.body.hasClass('archived')) return;
+		segment_id = $(editarea).attr('data-sid');
+		var segment = $('#segment-' + segment_id);
 		this.openSegmentStart = new Date();
+		if(UI.warningStopped) {
+			UI.warningStopped = false;
+			UI.checkWarnings(false);
+		}
 		if (!this.byButton) {
 			if (this.justSelecting('editarea'))
 				return;
@@ -773,9 +878,40 @@ UI = {
 		this.clearUndoStack();
 		this.saveInUndoStack('open');
 		this.autoSave = true;
-		this.activateSegment();
+
+		var s1 = $('#segment-' + this.lastTranslatedSegmentId + ' .source').text();
+		var s2 = $('.source', segment).text();
+		var isDifferent = lev(s1,s2)/Math.max(s1.length,s2.length)*100 >50;
+		
+		
+		this.activateSegment(isDifferent);
 		this.getNextSegment(this.currentSegment, 'untranslated');
-		this.setCurrentSegment(segment);
+
+
+
+//		console.log('segment: ', segment_id);
+//		console.log('this.readonly: ', this.readonly);
+//		console.log('isDifferent: ', isDifferent);
+		if ((!this.readonly)&&(!isDifferent)) {
+			$('#segment-' + segment_id + ' .alternatives .overflow').hide();
+		}
+		this.setCurrentSegment();
+		
+		if (!this.readonly) {
+			if(isDifferent) {
+				this.getContribution(segment, 0);
+			} else {
+				$(segment).removeClass('loaded');
+				$(".loader", segment).addClass('loader_on');
+				setTimeout(function() {
+					$('.alternatives .overflow', segment).show();
+					UI.getContribution(segment, 0);
+				}, 3000);				
+			};	
+		}		
+		
+		
+//		if(!isDifferent) $('.editor .alternatives .overflow').hide();
 		this.currentSegment.addClass('opened');
 
 		this.currentSegment.attr('data-searchItems', ($('mark.searchMarker', this.editarea).length));
@@ -789,9 +925,10 @@ UI = {
 		}, 100);
 		this.currentIsLoaded = false;
 		this.nextIsLoaded = false;
-		if (!this.readonly)
-			this.getContribution(segment, 0);
-			if(!this.noGlossary) this.getGlossary(segment, true, 0);
+
+
+
+		if(!this.noGlossary) this.getGlossary(segment, true, 0);
 		this.opening = true;
 		if (!(this.currentSegment.is(this.lastOpenedSegment))) {
 			var lastOpened = $(this.lastOpenedSegment).attr('id');
@@ -811,6 +948,7 @@ UI = {
 		if (!this.readonly) {
 			this.getContribution(segment, 1);
 			this.getContribution(segment, 2);
+//			if(this.nextSegmentId != this.nextUntranslatedSegmentId) this.getContribution(segment, 2);
 			if(!this.noGlossary) this.getGlossary(segment, true, 1);
 			if(!this.noGlossary) this.getGlossary(segment, true, 2);
 		}
@@ -895,8 +1033,11 @@ UI = {
 		var segment = (byButton) ? this.currentSegment : this.lastOpenedSegment;
 		$('#' + segment.attr('id') + '-buttons').empty();
 		$('p.warnings', segment).remove();
+//		$('p.alternatives', segment).remove();
 	},
 	removeFooter: function(byButton) {
+		var segment = (byButton) ? this.currentSegment : this.lastOpenedSegment;		
+		$('#' + segment.attr('id') + ' .footer').empty();
 	},
 	removeHeader: function(byButton) {
 		var segment = (byButton) ? this.currentSegment : this.lastOpenedSegment;
@@ -906,7 +1047,7 @@ UI = {
 		statusMenu.empty().hide();
 	},
 	renderSegments: function(files, where, starting) {
-		$.each(files, function(k, v) {
+		$.each(files, function(k) {
 			var newFile = '';
 			var fs = this.file_stats;
 //            var fid = fs['ID_FILE'];
@@ -932,17 +1073,18 @@ UI = {
 						'			<strong>' + this.source + '</strong> [<span class="source-lang">' + this.source_code + '</span>]&nbsp;>&nbsp;<strong>' + this.target + '</strong> [<span class="target-lang">' + this.target_code + '</span>]' +
 						'		</li>' +
 						'		<li class="wordcounter">' +
-						'			Payable Words: <strong>' + fs.TOTAL_FORMATTED + '</strong>' +
+                        '			Payable Words: <strong>' + config.fileCounter[fid].TOTAL_FORMATTED + '</strong>' +
 //                '			To-do: <strong>' + fs['DRAFT_FORMATTED'] + '</strong>'+
-						'			<span id="rejected" class="hidden">Rejected: <strong>' + fs.REJECTED_FORMATTED + '</strong></span>' +
+//						'			<span id="rejected" class="hidden">Rejected: <strong>' + fs.REJECTED_FORMATTED + '</strong></span>' +
 						'		</li>' +
 						'	</ul>';
 			}
 
 			var t = config.time_to_edit_enabled;
-			$.each(this.segments, function(index) {
+			$.each(this.segments, function() {
 //                this.readonly = true;
-				var readonly = (this.readonly == 'true') ? true : false;
+				var readonly = ((this.readonly == 'true')||(UI.body.hasClass('archived'))) ? true : false;
+                var autoPropagated = this.autopropagated_from != 0;
 				var escapedSegment = htmlEncode(this.segment.replace(/\"/g, "&quot;"));
 
                 /* this is to show line feed in source too, because server side we replace \n with placeholders */
@@ -952,7 +1094,7 @@ UI = {
                 /* see also replacement made in source content below */
                 /* this is to show line feed in source too, because server side we replace \n with placeholders */
 
-				newFile += '<section id="segment-' + this.sid + '" class="' + ((readonly) ? 'readonly ' : '') + 'status-' + ((!this.status) ? 'new' : this.status.toLowerCase()) + ((this.has_reference == 'true')? ' has-reference' : '') + '">' +
+                newFile += '<section id="segment-' + this.sid + '" data-hash="' + this.segment_hash + '" data-autopropagated="' + autoPropagated + '" class="' + ((readonly) ? 'readonly ' : '') + 'status-' + ((!this.status) ? 'new' : this.status.toLowerCase()) + ((this.has_reference == 'true')? ' has-reference' : '') + '">' +
 						'	<a tabindex="-1" href="#' + this.sid + '"></a>' +
 						'	<span class="sid">' + this.sid + '</span>' +
 						'	<div class="body">' +
@@ -966,7 +1108,8 @@ UI = {
 						'				<div class="outersource"><div class="source item" tabindex="0" id="segment-' + this.sid + '-source" data-original="' + escapedSegment + '">' + UI.decodePlaceholdersToText(this.segment) + '</div>' +
 						'				<div class="copy" title="Copy source to target">' +
 						'                   <a href="#"></a>' +
-						'                   <p>' + ((UI.isMac) ? 'CMD' : 'CTRL') + '+RIGHT</p>' +
+						'                   <p>ALT+CTRL+I</p>' +
+//						'                   <p>' + ((UI.isMac) ? 'CMD' : 'CTRL') + '+RIGHT</p>' +
 						'				</div>' +
 						'				<div class="target item" id="segment-' + this.sid + '-target">' +
 						'					<span class="hide toggle"> ' +
@@ -1029,10 +1172,10 @@ UI = {
 			status = 'draft';
 		}
 		console.log('SAVE SEGMENT');
-		this.setTranslation(segment, status, 'autosave');
+		this.setTranslation($(segment).attr('id').split('-')[1], status, 'autosave');
 		segment.addClass('saved');
 	},
-	renderAndScrollToSegment: function(sid, file) {
+	renderAndScrollToSegment: function(sid) {
 		$('#outer').empty();
 		this.render({
 			firstLoad: false,
@@ -1042,7 +1185,8 @@ UI = {
 		});
 //        this.render(false, segment.selector.split('-')[1]);
 	},
-	scrollSegment: function(segment) {
+	scrollSegment: function(segment, highlight) {
+		highlight = highlight || false;
 //		console.log(segment);
 //        segment = (noOpen)? $('#segment-'+segment) : segment;
 //        noOpen = (typeof noOpen == 'undefined')? false : noOpen;
@@ -1050,7 +1194,8 @@ UI = {
 			$('#outer').empty();
 			this.render({
 				firstLoad: false,
-				segmentToOpen: segment.selector.split('-')[1]
+				segmentToScroll: segment.selector.split('-')[1],
+				highlight: highlight
 			});
 		}
 		var spread = 23;
@@ -1113,6 +1258,9 @@ UI = {
 				sentence: UI.editarea.text()
 			},
 			context: editarea,
+			error: function() {
+				UI.failedConnection(0, 'getSpellcheck');
+			},
 			success: function(data) {
 				ed = this;
 				$.each(data.result, function(key, value) { //key --> 0: { 'word': { 'offset':20, 'misses':['word1','word2'] } }
@@ -1120,12 +1268,12 @@ UI = {
 					var word = Object.keys(value)[0];
 					replacements = value[word].misses.join(",");
 
-					var Position = [
-						parseInt(value[word].offset),
-						parseInt(value[word].offset) + parseInt(word.length)
-					];
+//					var Position = [
+//						parseInt(value[word].offset),
+//						parseInt(value[word].offset) + parseInt(word.length)
+//					];
 
-					var sentTextInPosition = ed.text().substring(Position[0], Position[1]);
+//					var sentTextInPosition = ed.text().substring(Position[0], Position[1]);
 					//console.log(sentTextInPosition);
 
 					var re = new RegExp("(\\b" + word + "\\b)", "gi");
@@ -1144,24 +1292,22 @@ UI = {
 				action: 'setSpellcheck',
 				slang: config.target_rfc,
 				word: word
-			},
-			success: function(data) {
-
 			}
 		});
 	},
-	setCurrentSegment: function(segment, closed) {
+	setCurrentSegment: function(closed) {
+		reqArguments = arguments;
 		var id_segment = this.currentSegmentId;
 		if (closed) {
 			id_segment = 0;
 			UI.currentSegment = undefined;
 		} else {
 			setTimeout(function() {
-				var hash_value = window.location.hash;
+//				var hash_value = window.location.hash;
 				window.location.hash = UI.currentSegmentId;
 			}, 300);
 		}
-		var file = this.currentFile;
+//		var file = this.currentFile;
 		if (this.readonly)
 			return;
 		APP.doRequest({
@@ -1170,6 +1316,10 @@ UI = {
 				password: config.password,
 				id_segment: id_segment,
 				id_job: config.job_id
+			},
+			context: reqArguments,
+			error: function() {
+				UI.failedConnection(this, 'setCurrentSegment');
 			},
 			success: function(d) {
 				UI.setCurrentSegment_success(d);
@@ -1182,15 +1332,109 @@ UI = {
 		this.nextUntranslatedSegmentIdByServer = d.nextSegmentId;
 //		this.nextUntranslatedSegmentIdByServer = d.nextUntranslatedSegmentId;
 		this.getNextSegment(this.currentSegment, 'untranslated');
+		if(config.alternativesEnabled) this.detectTranslationAlternatives(d);
+	},
+    detectTranslationAlternatives: function(d) {
+
+        /**
+         *
+         * the three rows below are commented because business logic has changed, now auto-propagation info
+         * is sent as response in getMoreSegments and added as data in the "section" Tag and
+         * rendered/prepared in renderSegments/createHeader
+         * and managed in propagateTranslation
+         *
+         * TODO
+         * I leave them here but they should be removed
+         *
+         * @see renderSegments
+         * @see createHeader
+         * @see propagateTranslation
+         *
+         */
+//		if(d.data.editable.length + d.data.not_editable.length) {
+//			if(!$('.header .repetition', UI.currentSegment).length) $('.header', UI.currentSegment).prepend('<span class="repetition">Autopropagated</span>');
+//		}
+
+        sameContentIndex = -1;
+        $.each(d.data.editable, function(ind) {
+            //Remove trailing spaces for string comparison
+            if( this.translation == rawxliff2view( UI.editarea.text().replace( /[ \xA0]+$/ , '' ) ) ) {
+                sameContentIndex = ind;
+            }
+        });
+        if(sameContentIndex != -1) d.data.editable.splice(sameContentIndex, 1);
+
+        sameContentIndex1 = -1;
+        $.each(d.data.not_editable, function(ind) {
+            //Remove trailing spaces for string comparison
+            if(this.translation == rawxliff2view( UI.editarea.text().replace( /[ \xA0]+$/ , '' ) ) ) sameContentIndex1 = ind;
+        });
+        if(sameContentIndex1 != -1) d.data.not_editable.splice(sameContentIndex1, 1);
+
+        numAlt = d.data.editable.length + d.data.not_editable.length;
+        numSeg = 0;
+        $.each(d.data.editable, function() {
+            numSeg += this.involved_id.length;
+        });
+//		console.log('numAlt: ', numAlt);
+//		console.log('numSeg: ', numSeg);
+        if(numAlt) {
+//            UI.currentSegment.find('.status-container').after('<p class="alternatives"><a href="#">Already translated in ' + ((numAlt > 1)? 'other ' + numAlt + ' different' : 'another') + ' way' + ((numAlt > 1)? 's' : '') + '</a></p>');
+            tab = UI.currentSegment.find('.tab-switcher-al');
+            tab.find('.number').text('(' + numAlt + ')');
+            UI.renderAlternatives(d);
+            tab.show();
+            tab.trigger('click');
+        }
+    },
+    renderAlternatives: function(d) {
+//		console.log('renderAlternatives');
+//		console.log($('.editor .submenu').length);
+//		console.log(UI.currentSegmentId);
+        segment = UI.currentSegment;
+        segment_id = UI.currentSegmentId;
+        escapedSegment = UI.decodePlaceholdersToText(UI.currentSegment.find('.source').html());
+        $.each(d.data.editable, function(index) {
+			var diff_view = UI.dmp.diff_main( UI.currentSegment.find('.editarea').text(), htmlDecode( UI.decodePlaceholdersToText(this.translation) ) );
+			UI.dmp.diff_cleanupEfficiency( diff_view );
+            $('.sub-editor.alternatives .overflow', segment).append('<ul class="graysmall" data-item="' + (index + 1) + '"><li class="sugg-source"><span id="' + segment_id + '-tm-' + this.id + '-source" class="suggestion_source">' + escapedSegment + '</span></li><li class="b sugg-target"><!-- span class="switch-editing">Edit</span --><span class="graysmall-message">CTRL+' + (index + 1) + '</span><span class="translation">' + UI.dmp.diff_prettyHtml(diff_view) + '</span><span class="realData hide">' + this.translation + '</span></li><li class="goto"><a href="#" data-goto="' + this.involved_id[0]+ '">View</a></li></ul>');
+        });
+        $.each(d.data.not_editable, function(index1) {
+            var diff_view = UI.dmp.diff_main( UI.currentSegment.find('.editarea').text(), htmlDecode( UI.decodePlaceholdersToText(this.translation) ) );            UI.dmp.diff_cleanupEfficiency( diff_view );
+            $('.sub-editor.alternatives .overflow', segment).append('<ul class="graysmall notEditable" data-item="' + (index1 + d.data.editable.length + 1) + '"><li class="sugg-source"><span id="' + segment_id + '-tm-' + this.id + '-source" class="suggestion_source">' + escapedSegment + '</span></li><li class="b sugg-target"><!-- span class="switch-editing">Edit</span --><span class="graysmall-message">CTRL+' + (index1 + d.data.editable.length + 1) + '</span><span class="translation">' + UI.dmp.diff_prettyHtml(diff_view) + '</span><span class="realData hide">' + this.translation + '</span></li><li class="goto"><a href="#" data-goto="' + this.involved_id[0]+ '">View</a></li></ul>');
+        });
+    },
+    chooseAlternative: function(w) {console.log('chooseAlternative');
+//        console.log( $('.sugg-target .realData', w ) );
+        this.copyAlternativeInEditarea( UI.decodePlaceholdersToText( $('.sugg-target .realData', w ).text() ) );
+        this.lockTags(this.editarea);
+        this.editarea.focus();
+        this.highlightEditarea();
+    },
+	copyAlternativeInEditarea: function(translation) {
+		if ($.trim(translation) !== '') {
+			if (this.body.hasClass('searchActive'))
+				this.addWarningToSearchDisplay();
+			this.saveInUndoStack('copyalternative');
+			$(UI.editarea).text(translation).addClass('fromAlternative');
+			this.saveInUndoStack('copyalternative');
+		}
 	},
 	setDownloadStatus: function(stats) {
 		var t = 'approved';
-		if (parseFloat(stats.TRANSLATED))
-			t = 'translated';
-		if (parseFloat(stats.DRAFT))
-			t = 'draft';
-		if (parseFloat(stats.REJECTED))
-			t = 'draft';
+        var app = parseFloat(stats.APPROVED);
+        var tra = parseFloat(stats.TRANSLATED);
+        var dra = parseFloat(stats.DRAFT);
+        var rej = parseFloat(stats.REJECTED);
+        if (tra)
+            t = 'translated';
+        if (dra)
+            t = 'draft';
+        if (rej)
+            t = 'draft';
+        if( !tra && !dra && !rej && !app ){
+            t = 'draft';
+        }
 		$('.downloadtr-button').removeClass("draft translated approved").addClass(t);
 		var label = (t == 'translated') ? 'DOWNLOAD TRANSLATION' : 'PREVIEW';
 		$('#downloadProject').attr('value', label);
@@ -1198,8 +1442,15 @@ UI = {
 	setProgress: function(stats) {
 		var s = stats;
 		m = $('footer .meter');
-		var status = 'approved';
-		var total = s.TOTAL;
+        if( !s.ANALYSIS_COMPLETE ){
+            $('#statistics' ).hide();
+            $('#analyzing' ).show();
+        } else {
+            $('#statistics' ).show();
+            $('#analyzing' ).hide();
+        }
+//		var status = 'approved';
+//		var total = s.TOTAL;
 		var t_perc = s.TRANSLATED_PERC;
 		var a_perc = s.APPROVED_PERC;
 		var d_perc = s.DRAFT_PERC;
@@ -1210,8 +1461,8 @@ UI = {
 		var d_perc_formatted = s.DRAFT_PERC_FORMATTED;
 		var r_perc_formatted = s.REJECTED_PERC_FORMATTED;
 
-		var d_formatted = s.DRAFT_FORMATTED;
-		var r_formatted = s.REJECTED_FORMATTED;
+//		var d_formatted = s.DRAFT_FORMATTED;
+//		var r_formatted = s.REJECTED_FORMATTED;
 		var t_formatted = s.TODO_FORMATTED;
 
 		var wph = s.WORDS_PER_HOUR;
@@ -1242,7 +1493,9 @@ UI = {
 		$('#stat-todo strong').html(t_formatted);
 		$('#stat-wph strong').html(wph);
 		$('#stat-completion strong').html(completion);
-	},
+        $('#total-payable').html(s.TOTAL_FORMATTED);
+
+    },
 	chunkedSegmentsLoaded: function() {
 		return $('section.readonly').length;
 	},
@@ -1260,14 +1513,13 @@ UI = {
 		if (config.time_to_edit_enabled) {
 			var editSec = $('.timetoedit .edit-sec', segment);
 			var editMin = $('.timetoedit .edit-min', segment);
-			editMin.text(this.zerofill(editedTime[0], 2));
-			editSec.text(this.zerofill(editedTime[1], 2));
+			editMin.text(APP.zerofill(editedTime[0], 2));
+			editSec.text(APP.zerofill(editedTime[1], 2));
 		}
 		tte.data('raw_time_to_edit', this.totalTime);
 		var statusSwitcher = $(".status", segment);
 		statusSwitcher.removeClass("col-approved col-rejected col-done col-draft");
 
-		var statusToGo = (isTranslatedButton) ? 'untranslated' : '';
 		var nextUntranslatedSegment = $('#segment-' + this.nextUntranslatedSegmentId);
 		this.nextUntranslatedSegment = nextUntranslatedSegment;
 		if ((!isTranslatedButton) && (!nextUntranslatedSegment.length)) {
@@ -1290,9 +1542,64 @@ UI = {
 		location.href = $('#point2seg').attr('href');
 	},
 	continueDownload: function() {
-		$("form#fileDownload").unbind().submit().bind('submit', function(e) {
-			e.preventDefault();
-		});
+
+        //check if we are in download status
+        if ( !$('#downloadProject').hasClass('disabled') ) {
+
+            //disable download button
+            $('#downloadProject').addClass('disabled' ).data( 'oldValue', $('#downloadProject' ).val() ).val('DOWNLOADING...');
+
+            //create an iFrame element
+            var iFrameDownload = $( document.createElement( 'iframe' ) ).hide().prop({
+                id:'iframeDownload',
+                src: ''
+            });
+
+            //append iFrame to the DOM
+            $("body").append( iFrameDownload );
+
+            //generate a token download
+            var downloadToken = new Date().getTime();
+
+            //set event listner, on ready, attach an interval that check for finished download
+            iFrameDownload.ready(function () {
+
+                //create a GLOBAL setInterval so in anonymous function it can be disabled
+                downloadTimer = window.setInterval(function () {
+
+                    //check for cookie
+                    var token = $.cookie('downloadToken');
+
+                    //if the cookie is found, download is completed
+                    //remove iframe an re-enable download button
+                    if ( token == downloadToken ) {
+                        $('#downloadProject').removeClass('disabled').val( $('#downloadProject' ).data('oldValue') ).removeData('oldValue');
+                        window.clearInterval( downloadTimer );
+                        $.cookie('downloadToken', null, { path: '/', expires: -1 });
+                        iFrameDownload.remove();
+                    }
+
+                }, 2000);
+
+            });
+
+            //clone the html form and append a token for download
+            var iFrameForm = $("#fileDownload").clone().append(
+                $( document.createElement( 'input' ) ).prop({
+                    type:'hidden',
+                    name:'downloadToken',
+                    value: downloadToken
+                })
+            );
+
+            //append from to newly created iFrame and submit form post
+            iFrameDownload.contents().find('body').append( iFrameForm );
+            iFrameDownload.contents().find("#fileDownload").submit();
+
+        } else {
+            //we are in download status
+        }
+
 	},
 	/**
 	 * fill segments with relative errors from polling
@@ -1304,7 +1611,7 @@ UI = {
 	setNextWarnedSegment: function(sid) {
 		sid = sid || UI.currentSegmentId;
 		idList = UI.globalWarnings;
-		$.each(idList, function(index) {
+		$.each(idList, function() {
 			if (this > sid) {
 				$('#point2seg').attr('href', '#' + this);
 				return false;
@@ -1362,6 +1669,12 @@ UI = {
 		});
 		return i1;
 	},
+	startWarning: function() {
+		clearTimeout(UI.startWarningTimeout);
+		UI.startWarningTimeout = setTimeout(function() {
+			UI.checkWarnings(false);
+		}, config.warningPollingInterval);		
+	},
 
 	checkWarnings: function(openingSegment) {
 		var dd = new Date();
@@ -1376,22 +1689,33 @@ UI = {
 				password: config.password,
 				token: token
 			},
-			success: function(data) {
+			error: function() {
+				UI.warningStopped = true;
+				UI.failedConnection(0, 'getWarning');
+			},
+			success: function(data) {//console.log('check warnings success');
+				UI.startWarning();
 				var warningPosition = '';
-//                console.log('data.total: '+data.total);
 				UI.globalWarnings = data.details;
+				UI.translationMismatches = data.translation_mismatches;
+//				console.log(data.messages);
+//				console.log($.parseJSON(data.messages));
+//				data.messages = {
+//						msg: "messaggio di prova"
+//					};
+//		
+//				messages = ["Something happened! This is simply a fake message to inform you."];
 
 				//check for errors
 				if (UI.globalWarnings.length > 0) {
 					//for now, put only last in the pointer to segment id
 					warningPosition = '#' + data.details[ Object.keys(data.details).sort().shift() ].id_segment;
-//                    console.log('warningPosition: ' + warningPosition);
 
 					if (openingSegment)
 						UI.fillCurrentSegmentWarnings(data.details, true);
 			
 					//switch to css for warning
-					$('#notifbox').attr('class', 'warningbox').attr("title", "Some translations seems to have TAGS and/or other untraslatables that do not match the source").find('.numbererror').text(UI.globalWarnings.length);
+					$('#notifbox').attr('class', 'warningbox').attr("title", "Click to see the segments with potential issues").find('.numbererror').text(UI.globalWarnings.length);
 
 				} else {
 					//if everything is ok, switch css to ok
@@ -1399,11 +1723,47 @@ UI = {
 					//reset the pointer to offending segment
 					$('#point2seg').attr('href', '#');
 				}
+				
+				// check for messages
+				if(typeof data.messages != 'undefined') {
+					var msgArray = $.parseJSON(data.messages);
+					if (msgArray.length > 0) {
+						UI.displayMessage(msgArray);
+					}
+				}
+
 
 				UI.setNextWarnedSegment();
-//                $('#point2seg').attr('href', warningPosition);
+
+				//                $('#point2seg').attr('href', warningPosition);
 			}
 		});
+	},
+	displayMessage: function(messages) {
+		if($('body').hasClass('incomingMsg')) return false;
+		$.each(messages, function(index) {
+			if(typeof $.cookie('msg-' + this.token) == 'undefined' && ( new Date( this.expire ) > ( new Date ) )  ) {
+				UI.showMessage({
+					msg: this.msg,
+					token: this.token,
+					showOnce: true,
+					expire: this.expire
+				});
+				return false;
+			}
+		});
+	},
+	showMessage: function(options) {
+		APP.showMessage(options);
+	},
+	checkVersion: function() {
+		if(this.version != config.build_number) {
+			UI.showMessage({
+				msg: 'A new version of MateCat has been released. Please <a href="#" class="reloadPage">click here</a> or clic CTRL+F5 (or CMD+R on Mac) to update.',
+				token: false,
+				fixed: true
+			});
+		}
 	},
 	currentSegmentQA: function() {
 		this.currentSegment.addClass('waiting_for_check_result');
@@ -1413,13 +1773,13 @@ UI = {
 
 		//var src_content = $('.source', this.currentSegment).attr('data-original');
 
-        if( config.brPlaceholdEnabled ){
-            src_content = this.postProcessEditarea(this.currentSegment, '.source');
-            trg_content = this.postProcessEditarea(this.currentSegment);
-        } else {
-            src_content = this.getSegmentSource();
-            trg_content = this.getSegmentTarget();
-        }
+		if( config.brPlaceholdEnabled ){
+			src_content = this.postProcessEditarea(this.currentSegment, '.source');
+			trg_content = this.postProcessEditarea(this.currentSegment);
+		} else {
+			src_content = this.getSegmentSource();
+			trg_content = this.getSegmentTarget();
+		}
 
 		this.checkSegmentsArray[token] = trg_content;
 		APP.doRequest({
@@ -1430,6 +1790,9 @@ UI = {
 				password: config.password,
 				src_content: src_content,
 				trg_content: trg_content
+			},
+			error: function() {
+				UI.failedConnection(0, 'getWarning');
 			},
 			success: function(d) {
 				if (UI.currentSegment.hasClass('waiting_for_check_result')) {
@@ -1451,22 +1814,21 @@ UI = {
 			}
 		}, 'local');
 	},
-	setTranslation: function(segment, status, caller) {
+	setTranslation: function(id_segment, status, caller) {
+		reqArguments = arguments;
+		segment = $('#segment-' + id_segment); 
+		this.lastTranslatedSegmentId = id_segment;
 		caller = (typeof caller == 'undefined') ? false : caller;
-//		console.log('SET TRANSLATION');
-		var info = $(segment).attr('id').split('-');
-		var id_segment = info[1];
 		var file = $(segment).parents('article');
-//		var status = status;
 
 		// Attention, to be modified when we will lock tags
 		if( config.brPlaceholdEnabled ) {
-            translation = this.postProcessEditarea(segment);
-        } else {
-            translation = $('.editarea', segment ).text();
-        }
+			translation = this.postProcessEditarea(segment);
+		} else {
+			translation = $('.editarea', segment ).text();
+		}
 
-		if (translation === '')
+		if (translation === '') 
 			return false;
 		var time_to_edit = UI.editTime;
 		var id_translator = config.id_translator;
@@ -1486,7 +1848,6 @@ UI = {
 //		}
 		autosave = (caller == 'autosave') ? true : false;
 
-
 		APP.doRequest({
 			data: {
 				action: 'setTranslation',
@@ -1502,11 +1863,148 @@ UI = {
 				chosen_suggestion_index: chosen_suggestion,
 				autosave: autosave
 			},
+			context: [reqArguments, segment, status],
+			error: function() {
+				UI.failedConnection(this[0], 'setTranslation');
+			},
 			success: function(d) {
-				UI.setTranslation_success(d, segment, status);
+				UI.setTranslation_success(d, this[1], this[2]);
 			}
 		});
 	},
+	failover: function(reqArguments, operation) {
+		console.log('failover on ' + operation);
+		if(operation != 'getWarning') {
+			var pendingConnection = {
+				operation: operation,
+				args: reqArguments
+			};
+			console.log('pendingConnection: ', pendingConnection);
+			var dd = new Date();
+			if(pendingConnection.args) {
+				localStorage.setItem('pending-' + dd.getTime(), JSON.stringify(pendingConnection));
+			}
+			if(!UI.checkConnectionTimeout) {
+				UI.checkConnectionTimeout = setTimeout(function() {
+					UI.checkConnection();
+					UI.checkConnectionTimeout = false;
+				}, 5000);	
+			}
+		}
+	},
+
+	failedConnection: function(reqArguments, operation) {
+		if(this.autoFailoverEnabled) {
+			this.failover(reqArguments, operation);
+			return false;
+		}
+		if(operation != 'getWarning') {
+			var pendingConnection = {
+				operation: operation,
+				args: reqArguments
+			};
+			UI.abortedOperations.push(pendingConnection);
+		}
+		if(!$('.noConnection').length) {
+			UI.body.append('<div class="noConnection"></div><div class="noConnectionMsg">No connection available.<br /><span class="reconnect">Trying to reconnect in <span class="countdown">30 seconds</span>.</span><br /><br /><input type="button" id="checkConnection" value="Try to reconnect now" /></div>');
+			$(".noConnectionMsg .countdown").countdown(UI.checkConnection, 30, " seconds");
+		}
+	},
+	checkConnection: function() {
+		APP.doRequest({
+			data: {
+				action: 'ajaxUtils',
+				exec: 'ping'
+			},
+			error: function() {
+				console.log('error on checking connection');
+				if(UI.autoFailoverEnabled) {
+					setTimeout(function() {
+						UI.checkConnection();
+					}, 5000);	
+				} else {
+					$(".noConnectionMsg .reconnect").html('Still no connection. Trying to reconnect in <span class="countdown">30 seconds</span>.');
+					$(".noConnectionMsg .countdown").countdown(UI.checkConnection, 30, " seconds");					
+				}
+
+			},
+			success: function() {
+				console.log('connection is back');
+				if(!UI.restoringAbortedOperations) UI.connectionIsBack();
+			}
+		});
+	},
+	connectionIsBack: function() {
+		UI.restoringAbortedOperations = true;
+		this.execAbortedOperations();
+		if(!UI.autoFailoverEnabled) {
+			$('.noConnectionMsg').text('The connection is back. Your last, interrupted operation has now been done.');
+			setTimeout(function() {
+				$('.noConnection').addClass('reConnection');
+				setTimeout(function() {
+					$('.noConnection, .noConnectionMsg').remove();
+				}, 500);		
+			}, 3000);	
+		}
+		UI.restoringAbortedOperations = false;
+
+	},
+	execAbortedOperations: function() {
+		if(UI.autoFailoverEnabled) {
+//			console.log(localStorage);
+			var pendingArray = [];
+			inp = 'pending';
+			$.each(localStorage, function(k,v) {
+				if(k.substring(0, inp.length) === inp) {
+					pendingArray.push(JSON.parse(v));
+				}
+			});
+//			console.log(pendingArray);
+			UI.abortedOperations = pendingArray;
+		}
+//		console.log(UI.abortedOperations);
+		$.each(UI.abortedOperations, function() {
+			args = this.args;
+			operation = this.operation;
+			if(operation == 'setTranslation') {
+				UI[operation](args[0], args[1], args[2]);
+			} else if(operation == 'updateContribution') {
+				UI[operation](args[0], args[1]);
+			} else if(operation == 'setContributionMT') {
+				UI[operation](args[0], args[1], args[2]);
+			} else if(operation == 'setCurrentSegment') {
+				UI[operation](args[0]);
+			} else if(operation == 'getSegments') {
+				UI.reloadWarning();
+			}
+		});
+		UI.abortedOperations = [];
+		UI.clearStorage('pending');
+	},
+	checkPendingOperations: function() {
+		if(this.checkInStorage('pending')) {
+			UI.execAbortedOperations();
+		};
+	},
+	checkInStorage: function(what) {
+		var found = false;
+		$.each(localStorage, function(k,v) {
+			if(k.substring(0, what.length) === what) {
+				found = true;
+			}
+		});
+		return found;
+	},
+
+	clearStorage: function(what) {
+		$.each(localStorage, function(k,v) {
+			if(k.substring(0, what.length) === what) {
+				localStorage.removeItem(k);
+			}
+		});
+	},
+
+	
     /**
      * This function is used when a string has to be sent to the server
      * It works over a clone of the editarea ( translation area ) and manage the text()
@@ -1545,30 +2043,34 @@ UI = {
 	},
 */
 
-	postProcessEditarea: function(context, selector){
-		selector = (typeof selector === "undefined") ? '.editarea' : selector;
-		area = $( selector, context ).clone();
-/*
-		console.log($(area).html());
-		var txt = this.fixBR($(area).html());
-		console.log(txt);
-		return txt;
-*/
+    postProcessEditarea: function(context, selector){
+        selector = (typeof selector === "undefined") ? '.editarea' : selector;
+        area = $( selector, context ).clone();
+        /*
+         console.log($(area).html());
+         var txt = this.fixBR($(area).html());
+         console.log(txt);
+         return txt;
+         */
 
-		var divs = $( area ).find( 'div' );
-		if( divs.length ){
-			divs.each(function(){
-				$(this).find( 'br:not([class])' ).remove();
-				$(this).prepend( $('<span class="placeholder">' + config.crlfPlaceholder + '</span>' ) ).replaceWith( $(this).html() );
-			});
-		} else {
+        var divs = $( area ).find( 'div' );
+        if( divs.length ){
+            divs.each(function(){
+                $(this).find( 'br:not([class])' ).remove();
+                $(this).prepend( $('<span class="placeholder">' + config.crlfPlaceholder + '</span>' ) ).replaceWith( $(this).html() );
+            });
+        } else {
 //			console.log('post process 1: ', $(area).html());
 //			console.log($(area).find( 'br:not([class])' ).length);
 //			$(area).find( 'br:not([class])' ).replaceWith( $('<span class="placeholder">' + config.crlfPlaceholder + '</span>') );
-			$(area).find('br:not([class]), br.' + config.crlfPlaceholderClass).replaceWith( '<span class="placeholder">' + config.crlfPlaceholder + '</span>' );
+
+            $(area).find('br:not([class]), br.' + config.crlfPlaceholderClass).replaceWith( '<span class="placeholder">' + config.crlfPlaceholder + '</span>' );
+            $(area).find('br.' + config.lfPlaceholderClass).replaceWith( '<span class="placeholder">' + config.lfPlaceholder + '</span>' );
+            $(area).find('br.' + config.crPlaceholderClass).replaceWith( '<span class="placeholder">' + config.crPlaceholder + '</span>' );
+
 //			$(area).find( 'br:not([class])' ).replaceWith( $('[BR]') );
 //			console.log('post process 2: ', $(area).html());
-		}
+        }
 
 //        Now commented, but valid for future purposes when the user will choose what type of carriage return
 //        $('br', area).each(function() {
@@ -1598,9 +2100,23 @@ UI = {
 //            }
 //
 //        });
+//		return area.text();
 
-		return area.text();
 
+/*      //trim last br if it is present and if after that element there's nothing
+        //check if a node with placeholdr class exists and take the last one
+        var lastPlacehold = $( 'span.placeholder:last', area ).get(0);
+        if( typeof lastPlacehold != 'undefined' ){
+            //if there are NOT something after
+            if( lastPlacehold.nextSibling == null ) {
+                $( 'span.placeholder:last', area ).remove();
+            }
+        }
+*/
+        //same as preeceding commented but with regular expression, better because remove ALL trailing BR not only one
+        /* trim all last br if it is present and if after that element there's nothing */
+//        console.log( $( area ).text() );
+        return $( area ).text().replace( /(:?[ \xA0]*##\$_[0-9A-F]{2,4}\$##[ \xA0]*)+$/, "" );
 
 
     },
@@ -1618,6 +2134,7 @@ UI = {
     },
 
 	processErrors: function(err, operation) {
+		console.log('processErrors: ', err);
 		$.each(err, function() {
 			if (operation == 'setTranslation') {
 				if (this.code != '-10') { // is not a password error
@@ -1626,7 +2143,7 @@ UI = {
 			}
 
 			if (operation == 'setContribution' && this.code != '-10') { // is not a password error
-				APP.alert({msg: "Error in saving the translation memory.<br />Try the to save again the segment.<br />If the solutions above does not resolve the issue, please stop the translation and report the problem to <b>support@matecat.com</b>"});
+				APP.alert({msg: "Error in saving the translation memory.<br />Try to save again the segment.<br />If the solutions above does not resolve the issue, please stop the translation and report the problem to <b>support@matecat.com</b>"});
 			}
 
 			if (this.code == '-10') {
@@ -1639,7 +2156,10 @@ UI = {
 				// This Alert, will be NEVER displayed because are no-blocking
 				// Transform location.reload(); to a callable function passed as callback to alert
 			}
-
+			if (this.code == '-1000') {
+				console.log('ERROR -1000');
+				UI.failedConnection(0, 'no');
+			}
 		});
 	},
 	reloadPage: function() {
@@ -1666,8 +2186,26 @@ UI = {
 			this.setProgress(d.stats);
 			//check status of global warnings
 			this.checkWarnings(false);
-		}
-	},
+            this.propagateTranslation(segment, status);
+        }
+    },
+    propagateTranslation: function(segment, status) {
+//        console.log($(segment).attr('data-hash'));
+
+        if( status == 'translated' ){
+            //unset actual segment as autoPropagated because now it is translated
+            $( segment ).data( 'autopropagated', false );
+        }
+
+        $.each($('section[data-hash=' + $(segment).attr('data-hash') + '].status-new, section[data-hash=' + $(segment).attr('data-hash') + '].status-draft, section[data-hash=' + $(segment).attr('data-hash') + '].status-rejected'), function(index) {
+            $('.editarea', this).html( $('.editarea', segment).html() );
+            UI.setStatus($(this), 'draft');
+            //set segment as autoPropagated
+            $( this ).data( 'autopropagated', true );
+        });
+        $('section[data-hash=' + $(segment).attr('data-hash') + ']');
+    },
+
 	setWaypoints: function() {
 		this.firstSegment.waypoint('remove');
 		this.lastSegment.waypoint('remove');
@@ -1768,6 +2306,7 @@ UI = {
 		}
 	},
 	undoInSegment: function() {
+		console.log('undoInSegment');
 		if (this.undoStackPosition === 0)
 			this.saveInUndoStack('undo');
 		var ind = 0;
@@ -1775,6 +2314,9 @@ UI = {
 			ind = this.undoStack.length - 1 - this.undoStackPosition - 1;
 
 		this.editarea.html(this.undoStack[ind]);
+		setCursorPosition(document.getElementsByClassName("undoCursorPlaceholder")[0]);
+		$('.undoCursorPlaceholder').remove();
+
 		if (!ind)
 			this.lockTags();
 
@@ -1790,7 +2332,8 @@ UI = {
 		this.currentSegment.removeClass('waiting_for_check_result');
 		this.registerQACheck();
 	},
-	saveInUndoStack: function(action) {
+	saveInUndoStack: function() {
+//		noRestore = (typeof noRestore == 'undefined')? 0 : 1;
 		currentItem = this.undoStack[this.undoStack.length - 1 - this.undoStackPosition];
 
 		if (typeof currentItem != 'undefined') {
@@ -1817,6 +2360,10 @@ UI = {
 			this.undoStack.splice(this.undoStack.length - pos, pos);
 			this.undoStackPosition = 0;
 		}
+		saveSelection();
+		$('.undoCursorPlaceholder').remove();
+		$('.rangySelectionBoundary').after('<span class="undoCursorPlaceholder"></span>');
+		restoreSelection();
 		this.undoStack.push(this.editarea.html().replace(/(<.*?)\s?selected\s?(.*?\>)/gi, '$1$2'));
 	},
 	clearUndoStack: function() {
@@ -1824,21 +2371,11 @@ UI = {
 	},
 	updateJobMenu: function() {
 		$('#jobMenu li.current').removeClass('current');
-		$('#jobMenu li:not(.currSegment)').each(function(index) {
+		$('#jobMenu li:not(.currSegment)').each(function() {
 			if ($(this).attr('data-file') == UI.currentFileId)
 				$(this).addClass('current');
 		});
 		$('#jobMenu li.currSegment').attr('data-segment', UI.currentSegmentId);
-	},
-	zerofill: function(i, l, s) {
-		var o = i.toString();
-		if (!s) {
-			s = '0';
-		}
-		while (o.length < l) {
-			o = s + o;
-		}
-		return o;
 	}
 };
 
@@ -1855,14 +2392,10 @@ $(document).ready(function() {
 	});
 	//launch segments check on opening
 	UI.checkWarnings(true);
-	//and on every polling interval
-	setInterval(function() {
-		UI.checkWarnings(false);
-	}, config.warningPollingInterval);
 });
 
 $.extend($.expr[":"], {
-	"containsNC": function(elem, i, match, array) {
+	"containsNC": function(elem, i, match) {
 		return (elem.textContent || elem.innerText || "").toLowerCase().indexOf((match[3] || "").toLowerCase()) >= 0;
 	}
 });
@@ -1871,15 +2404,18 @@ $(window).resize(function() {
 });
 
 
+
 /*
 	Component: ui.init
  */
 $.extend(UI, {
-	init: function(options) {
+	init: function() {
 		this.initStart = new Date();
+		this.version = "0.3.4.3";
 		if (this.debug)
 			console.log('Render time: ' + (this.initStart - renderStart));
 		this.numContributionMatchesResults = 3;
+		this.numDisplayContributionMatches = 3;
 		this.numMatchesResults = 10;
 		this.numSegments = $('section').length;
 		this.editarea = '';
@@ -1896,15 +2432,17 @@ $.extend(UI, {
 		this.noGlossary = false;
 		setTimeout(function() {
 			UI.blockGetMoreSegments = false;
-		}, 1000);
+		}, 200);
+		this.loadCustomization();
 		this.detectFirstLast();
-		this.reinitMMShortcuts();
+//		this.reinitMMShortcuts();
 		this.initSegmentNavBar();
 		rangy.init();
 		this.savedSel = null;
 		this.savedSelActiveElement = null;
 		this.firstOpenedSegment = false;
 		this.autoscrollCorrectionEnabled = true;
+		this.autoFailoverEnabled = false;
 		this.searchEnabled = true;
 		if (this.searchEnabled)
 			$('#filterSwitch').show();
@@ -1922,9 +2460,95 @@ $.extend(UI, {
 //		this.markTags(true);
 		this.firstMarking = false;
 		this.surveyDisplayed = false;
+		this.warningStopped = false;
+		this.abortedOperations = [];
+		this.shortcuts = {
+			"translate": {
+				"label" : "Confirm translation",
+				"equivalent": "click on Translated",
+				"keystrokes" : {
+					"standard": "ctrl+return",
+					"mac": "meta+return",
+				}
+			},
+			"translate_nextUntranslated": {
+				"label" : "Confirm translation and go to Next untranslated segment",
+				"equivalent": "click on [T+>>]",
+				"keystrokes" : {
+					"standard": "ctrl+shift+return",
+					"mac": "meta+shift+return",
+				}
+			},
+			"openNext": {
+				"label" : "Go to next segment",
+				"equivalent": "",
+				"keystrokes" : {
+					"standard": "ctrl+down",
+					"mac": "meta+down",
+				}
+			},
+			"openPrevious": {
+				"label" : "Go to previous segment",
+				"equivalent": "",
+				"keystrokes" : {
+					"standard": "ctrl+up",
+					"mac": "meta+up",
+				}
+			},
+			"gotoCurrent": {
+				"label" : "Go to current segment",
+				"equivalent": "",
+				"keystrokes" : {
+					"standard": "ctrl+left",
+					"mac": "meta+left",
+				}
+			},
+			"copySource": {
+				"label" : "Copy source to target",
+				"equivalent": "click on > between source and target",
+				"keystrokes" : {
+					"standard": "alt+ctrl+i",
+				}
+			},
+			"undoInSegment": {
+				"label" : "Undo in segment",
+				"equivalent": "",
+				"keystrokes" : {
+					"standard": "ctrl+z",
+					"mac": "meta+z",
+				}
+			},
+			"redoInSegment": {
+				"label" : "Undo in segment",
+				"equivalent": "",
+				"keystrokes" : {
+					"standard": "ctrl+y",
+					"mac": "meta+shift+z",
+				}
+			},
+			"openSearch": {
+				"label" : "Open/Close search panel",
+				"equivalent": "",
+				"keystrokes" : {
+					"standard": "ctrl+f",
+					"mac": "meta+f",
+				}
+			},
+			"searchInConcordance": {
+				"label" : "Perform Concordance search on word(s) selected in the source or target segment",
+				"equivalent": "",
+				"keystrokes" : {
+					"standard": "alt+ctrl+c",
+					"mac": "alt+meta+c",
+				}
+			},
+		}
+		this.setShortcuts();
 		this.setContextMenu();
 		this.createJobMenu();
 		$('#alertConfirmTranslation p').text('To confirm your translation, please press on Translated or use the shortcut ' + ((UI.isMac) ? 'CMD' : 'CTRL') + '+Enter.');
+		APP.initMessageBar();
+		this.checkVersion();
 
 		// SET EVENTS
 		this.setEvents();
@@ -1932,7 +2556,7 @@ $.extend(UI, {
 			this.surveyDisplayed = true;
 		}
 	},
-}); 
+});
 
 
 
@@ -1945,12 +2569,17 @@ $.extend(UI, {
 		segmentToOpen = (options.segmentToOpen || false);
 		segmentToScroll = (options.segmentToScroll || false);
 		scrollToFile = (options.scrollToFile || false);
+		highlight = (options.highlight || false);
 		seg = (segmentToOpen || false);
 		this.segmentToScrollAtRender = (seg) ? seg : false;
-		this.isWebkit = $.browser.webkit;
-		this.isChrome = $.browser.webkit && !!window.chrome;
-		this.isFirefox = $.browser.mozilla;
-		this.isSafari = $.browser.webkit && !window.chrome;
+//		this.isWebkit = $.browser.webkit;
+//		this.isChrome = $.browser.webkit && !!window.chrome;
+//		this.isFirefox = $.browser.mozilla;
+//		this.isSafari = $.browser.webkit && !window.chrome;
+		this.isChrome = (typeof window.chrome != 'undefined');
+		this.isFirefox = (typeof navigator.mozApps != 'undefined');
+//		console.log('body.scrollTop: ', $('body').scrollTop());
+//		console.log('window.scrollTop: ', $(window).scrollTop());
 		this.isMac = (navigator.platform == 'MacIntel') ? true : false;
 		this.body = $('body');
 		this.firstLoad = firstLoad;
@@ -1961,7 +2590,7 @@ $.extend(UI, {
 		this.moreSegNum = 25;
 		this.numOpenedSegments = 0;
 		this.hasToBeRerendered = false;
-		this.maxMinutesBeforeRerendering = 30;
+		this.maxMinutesBeforeRerendering = 60;
 		setTimeout(function() {
 			UI.hasToBeRerendered = true;
 		}, this.maxMinutesBeforeRerendering*60000);	
@@ -1999,10 +2628,16 @@ $.extend(UI, {
 		 */
 		this.globalWarnings = [];
 
-		this.downOpts = {offset: '130%'};
+        /**
+         * Global Translation mismatches array definition.
+         */
+        this.translationMismatches = [];
+
+        this.downOpts = {offset: '130%'};
 		this.upOpts = {offset: '-40%'};
 		this.readonly = (this.body.hasClass('archived')) ? true : false;
-		this.suggestionShortcutLabel = 'ALT+' + ((UI.isMac) ? "CMD" : "CTRL") + '+';
+//		this.suggestionShortcutLabel = 'ALT+' + ((UI.isMac) ? "CMD" : "CTRL") + '+';
+		this.suggestionShortcutLabel = 'CTRL+';
 
 		this.taglockEnabled = config.taglockEnabled;
 		this.debug = false;
@@ -2012,6 +2647,11 @@ $.extend(UI, {
 		UI.detectStartSegment(); 
 		options.openCurrentSegmentAfter = ((!seg) && (!this.firstLoad)) ? true : false;
 		UI.getSegments(options);
+//		if(highlight) {
+//			console.log('HIGHLIGHT');
+//			UI.highlightEditarea();
+//		}
+
 		if (this.firstLoad && this.autoUpdateEnabled) {
 			this.lastUpdateRequested = new Date();
 			setTimeout(function() {
@@ -2026,69 +2666,117 @@ $.extend(UI, {
 	Component: ui.events 
  */
 $.extend(UI, {
-	setEvents: function() {
-		$("body").bind('keydown', 'Ctrl+return', function(e) {
+	bindShortcuts: function() {
+		$("body").removeClass('shortcutsDisabled');
+		$("body").on('keydown.shortcuts', null, UI.shortcuts.translate.keystrokes.standard, function(e) {
 			e.preventDefault();
 			$('.editor .translated').click();
-		}).bind('keydown', 'Meta+return', function(e) {
+//		}).bind('keydown', 'Meta+return', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.translate.keystrokes.mac, function(e) {
 			e.preventDefault();
+			console.log('funziona');
 			$('.editor .translated').click();
-		}).bind('keydown', 'Ctrl+shift+return', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.translate_nextUntranslated.keystrokes.standard, function(e) {
 			e.preventDefault();
 			$('.editor .next-untranslated').click();
-		}).bind('keydown', 'Meta+shift+return', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.translate_nextUntranslated.keystrokes.mac, function(e) {
 			e.preventDefault();
 			$('.editor .next-untranslated').click();
-		}).bind('keydown', 'Ctrl+pageup', function(e) {
+		}).on('keydown.shortcuts', null, 'Ctrl+pageup', function(e) {
 			e.preventDefault();
-		}).bind('keydown', 'Ctrl+down', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.openNext.keystrokes.standard, function(e) {
 			e.preventDefault();
 			e.stopPropagation();
 			UI.gotoNextSegment();
-		}).bind('keydown', 'Meta+down', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.openNext.keystrokes.mac, function(e) {
 			e.preventDefault();
 			e.stopPropagation();
 			UI.gotoNextSegment();
-		}).bind('keydown', 'Ctrl+up', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.openPrevious.keystrokes.standard, function(e) {
 			e.preventDefault();
 			e.stopPropagation();
 			UI.gotoPreviousSegment();
-		}).bind('keydown', 'Meta+up', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.openPrevious.keystrokes.mac, function(e) {
 			e.preventDefault();
 			e.stopPropagation();
 			UI.gotoPreviousSegment();
-		}).bind('keydown', 'Ctrl+left', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.gotoCurrent.keystrokes.standard, function(e) {
 			e.preventDefault();
 			UI.pointToOpenSegment();
-		}).bind('keydown', 'Meta+left', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.gotoCurrent.keystrokes.mac, function(e) {
 			e.preventDefault();
 			UI.pointToOpenSegment();
-		}).bind('keydown', 'Alt+ctrl+i', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.copySource.keystrokes.standard, function(e) {
 			e.preventDefault();
 			UI.copySource();
-		}).bind('keydown', 'Ctrl+z', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.undoInSegment.keystrokes.standard, function(e) {
 			e.preventDefault();
 			UI.undoInSegment(segment);
 			UI.closeTagAutocompletePanel();
-		}).bind('keydown', 'Meta+z', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.undoInSegment.keystrokes.mac, function(e) {
 			e.preventDefault();
 			UI.undoInSegment(segment);
 			UI.closeTagAutocompletePanel();
-		}).bind('keydown', 'Ctrl+y', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.redoInSegment.keystrokes.standard, function(e) {
 			e.preventDefault();
 			UI.redoInSegment(segment);
-		}).bind('keydown', 'Meta+Shift+z', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.redoInSegment.keystrokes.mac, function(e) {
 			e.preventDefault();
 			UI.redoInSegment(segment);
-		}).bind('keydown', 'Ctrl+c', function(e) {
+		}).on('keydown.shortcuts', null, UI.shortcuts.openSearch.keystrokes.standard, function(e) {
+			UI.toggleSearch(e);
+		}).on('keydown.shortcuts', null, UI.shortcuts.openSearch.keystrokes.mac, function(e) {
+			UI.toggleSearch(e);
+		});		
+	},
+	unbindShortcuts: function() {
+		$("body").off(".shortcuts").addClass('shortcutsDisabled');
+	},
+	setEvents: function() {
+		this.bindShortcuts();
+		$("body").on('keydown', null, 'ctrl+1', function(e) {
+			e.preventDefault();
+			active = $('.editor .submenu li.active');
+			if(active.hasClass('tab-switcher-tm')) {
+				tab = 'matches';
+				$('.editor .tab.' + tab + ' .graysmall[data-item=1]').trigger('dblclick');
+			} else if(active.hasClass('tab-switcher-al')) {
+				tab = 'alternatives';								
+				$('.editor .tab.' + tab + ' .graysmall[data-item=1]').trigger('dblclick');
+			}
+		}).on('keydown', null, 'ctrl+2', function(e) {
+			e.preventDefault();
+			active = $('.editor .submenu li.active');
+			if(active.hasClass('tab-switcher-tm')) {
+				tab = 'matches';
+				$('.editor .tab.' + tab + ' .graysmall[data-item=2]').trigger('dblclick');		
+			} else if(active.hasClass('tab-switcher-al')) {
+				tab = 'alternatives';								
+				$('.editor .tab.' + tab + ' .graysmall[data-item=2]').trigger('dblclick');
+			}
+		}).on('keydown', null, 'ctrl+3', function(e) {
+			e.preventDefault();
+			active = $('.editor .submenu li.active');
+			if(active.hasClass('tab-switcher-tm')) {
+				tab = 'matches';
+				$('.editor .tab.' + tab + ' .graysmall[data-item=3]').trigger('dblclick');		
+			} else if(active.hasClass('.tab-switcher-al')) {
+				tab = 'alternatives';								
+				$('.editor .tab.' + tab + ' .graysmall[data-item=3]').trigger('dblclick');
+			}
+		});		
+		$("body").bind('keydown', 'Ctrl+c', function() {
 			UI.tagSelection = false;
-		}).bind('keydown', 'Meta+c', function(e) {
+		}).bind('keydown', 'Meta+c', function() {
 			UI.tagSelection = false;
 //		}).bind('keydown', 'Backspace', function(e) {
-		}).bind('keydown', 'Meta+f', function(e) {
-			UI.toggleSearch(e);
-		}).bind('keydown', 'Ctrl+f', function(e) {
-			UI.toggleSearch(e);
+
+//		}).on('click', '#messageBar .close', function(e) {
+//			e.preventDefault();
+//			$('body').removeClass('incomingMsg');
+//			var expireDate = new Date($('#messageBar').attr('data-expire'));
+//			$.cookie($('#messageBar').attr('data-token'), '', { expires: expireDate });		
+					
 //		}).on('change', '#hideAlertConfirmTranslation', function(e) {
 //			console.log($(this).prop('checked'));
 //			if ($(this).prop('checked')) {
@@ -2100,6 +2788,41 @@ $.extend(UI, {
 //				UI.alertConfirmTranslationEnabled = true;
 //				$.removeCookie('noAlertConfirmTranslation');
 //			}
+		}).on('click', '#settingsSwitcher', function(e) {
+			e.preventDefault();
+			UI.unbindShortcuts();
+			$('.popup-settings').show();
+		}).on('click', '.popup-settings #settings-restore', function(e) {
+			e.preventDefault();
+			APP.closePopup();
+		}).on('click', '.popup-settings #settings-save', function(e) {
+			e.preventDefault();
+			APP.closePopup();
+		}).on('click', '.modal .x-popup', function(e) {
+			if($('body').hasClass('shortcutsDisabled')) {
+				UI.bindShortcuts();
+			}
+		}).on('click', '.popup-settings .x-popup', function(e) {
+			console.log('close');
+		}).on('click', '.popup-settings .submenu li', function(e) {
+			e.preventDefault();
+			$('.popup-settings .submenu li.active').removeClass('active');
+			$(this).addClass('active');
+			$('.popup-settings .tab').hide();
+			$('#' + $(this).attr('data-tab')).show();
+//			console.log($(this).attr('data-tab'));
+		}).on('click', '.popup-settings .submenu li a', function(e) {
+			e.preventDefault();
+		}).on('click', '#settings-shortcuts .list .combination .keystroke', function(e) {
+			$('#settings-shortcuts .list .combination .msg').remove();
+			$('#settings-shortcuts .list .combination .keystroke.changing').removeClass('changing');
+			$(this).toggleClass('changing').after('<span class="msg">New: </span>');
+			$('#settings-shortcuts').addClass('modifying');
+		}).on('click', '#settings-shortcuts #default-shortcuts', function(e) {
+			e.preventDefault();
+			$('#settings-shortcuts .list').remove();
+			UI.setShortcuts();
+			$('.popup-settings .submenu li[data-tab="settings-shortcuts"]').removeClass('modified');	
 		}).on('click', '#spellCheck .words', function(e) {
 			e.preventDefault();
 			UI.selectedMisspelledElement.replaceWith($(this).text());
@@ -2108,27 +2831,38 @@ $.extend(UI, {
 			e.preventDefault();
 			UI.closeContextMenu();
 			UI.addWord(UI.selectedMisspelledElement.text());
+		}).on('click', '.reloadPage', function(e) {
+			location.reload(true);
 		}).on('click', '.tag-autocomplete li', function(e) {
 			e.preventDefault();
 //			UI.editarea.html(UI.editarea.html().replace(/&lt;[&;"\w\s\/=]*?(\<span class="tag-autocomplete-endcursor"\>)/gi, '$1'));
 //			UI.editarea.html(UI.editarea.html().replace(/&lt;(?:[a-z]*&nbsp;*(["\w\s\/=]*?))?(\<span class="tag-autocomplete-endcursor"\>)/gi, '$2'));
+			console.log('a: ', UI.editarea.html());
 			UI.editarea.html(UI.editarea.html().replace(/&lt;(?:[a-z]*(?:&nbsp;)*["\w\s\/=]*)?(<span class="tag-autocomplete-endcursor"\>)/gi, '$1'));
+			console.log('b: ', UI.editarea.html());
 			saveSelection();
 			if(!$('.rangySelectionBoundary', UI.editarea).length) { // click, not keypress
+				console.log('qui: ', document.getElementsByClassName("tag-autocomplete-endcursor")[0]);
 				setCursorPosition(document.getElementsByClassName("tag-autocomplete-endcursor")[0]);
 				saveSelection();
 			}
 //			console.log($('.rangySelectionBoundary', UI.editarea)[0]);
+			console.log('c: ', UI.editarea.html());
 			var ph = $('.rangySelectionBoundary', UI.editarea)[0].outerHTML;
+			console.log('ph: ', ph);
 			$('.rangySelectionBoundary', UI.editarea).remove();
+			console.log('d: ', UI.editarea.html());
+			console.log($('.tag-autocomplete-endcursor', UI.editarea));
 			$('.tag-autocomplete-endcursor', UI.editarea).after(ph);
 //			setCursorPosition(document.getElementsByClassName("tag-autocomplete-endcursor")[0]);
+			console.log('e: ', UI.editarea.html());
 			$('.tag-autocomplete-endcursor').before(htmlEncode($(this).text()));
+			console.log('f: ', UI.editarea.html());
 			restoreSelection();
 			UI.closeTagAutocompletePanel();
 			UI.lockTags(UI.editarea);
 			UI.currentSegmentQA();
-		}).on('click', '.modal.survey .x-popup', function(e) {
+		}).on('click', '.modal.survey .x-popup', function() {
 			UI.surveyDisplayed = true;
 			if(typeof $.cookie('surveyedJobs') != 'undefined') {
 				var c = $.cookie('surveyedJobs');
@@ -2140,15 +2874,75 @@ $.extend(UI, {
 				$.cookie('surveyedJobs', config.survey + '||' + config.job_id + ',', { expires: 20, path: '/' });
 			}
 			$('.modal.survey').remove();
-		}).on('click', '.modal.survey .popup-outer', function(e) {
+		}).on('click', '.modal.survey .popup-outer', function() {
 			$('.modal.survey').hide().remove();
+		}).on('keydown', '#settings-shortcuts.modifying .keystroke', function(e) {
+			e.preventDefault();
+			var n = e.which;
+			var c = $(this).parents('.combination');
+			if(!(c.find('.new').length)) {
+				$(c).append('<span class="new"></span>')
+			}
+			var s = $('.new', c);
+			console.log(n);
+			if((n == '16')||(n == '17')||(n == '18')||(n == '91')) { // is a control key
+
+				if($('.control', s).length > 1) {
+					console.log('troppi tasti control: ', $('span', s).length);
+					return false;
+				}
+			
+				k = (n == '16')? 'shift' : (n == '17')? 'ctrl' : (n == '18')? 'alt' : (n == '91')? 'meta' : '';
+				s.html(s.html() + '<span class="control">' + UI.viewShortcutSymbols(k) + '</span>' + '+');
+			} else {
+				console.log(n);
+				symbol = (n == '8')? '9003' :
+						(n == '9')? '8682' :
+						(n == '13')? '8629' :
+						(n == '37')? '8592' :
+						(n == '38')? '8593' :
+						(n == '39')? '8594' :
+						(n == '40')? '8595' : n;
+				console.log('symbol: ', symbol);
+//				pref = ($.inArray(n, [37, 38, 39, 40]))? '#' : '';
+				s.html(s.html() + '<span class="char">' + UI.viewShortcutSymbols('&#' + symbol) + '</span>' + '+');
+				console.log(s.html());
+			}
+			if($('span', s).length > 2) {
+//				console.log('numero span: ', $('span', s).length);
+				UI.writeNewShortcut(c, s, this);
+
+//				$(this).html(s.html().substring(0, s.html().length - 1)).removeClass('changing').addClass('modified').blur();
+//				$(s).remove();
+//				$('.msg', c).remove();
+//				$('#settings-shortcuts.modifying').removeClass('modifying');
+//				$('.popup-settings .submenu li[data-tab="settings-shortcuts"]').addClass('modified');
+			}				
+		}).on('keyup', '#settings-shortcuts.modifying .keystroke', function(e) {
+			console.log('keyup');
+			var c = $(this).parents('.combination');
+			var s = $('.new', c);
+			if(($('.control', s).length)&&($('.char', s).length)) {
+				UI.writeNewShortcut(c, s, this);
+			}
+			$(s).remove();
 		});
 		
-		$(window).on('scroll', function(e) {
+		$(window).on('scroll', function() {
 			UI.browserScrollPositionRestoreCorrection();
-		}).on('allTranslated', function(e) {
+		}).on('allTranslated', function() {
 			if(config.survey) UI.displaySurvey(config.survey);
 		});
+//		window.onbeforeunload = goodbye;
+
+		window.onbeforeunload = function(e) {
+			goodbye(e);
+			UI.clearStorage('contribution');
+			
+//			localStorage.clear();
+		};
+
+	
 // no more used:
 		$("header .filter").click(function(e) {
 			e.preventDefault();
@@ -2184,12 +2978,12 @@ $.extend(UI, {
 
 		//overlay
 
-		$(".x-stats").click(function(e) {
+		$(".x-stats").click(function() {
 			$(".stats").toggle();
 		});
 
-		$(window).on('sourceCopied', function(event) {
-		});
+//		$(window).on('sourceCopied', function(event) {
+//		});
 
 		$("#outer").on('click', 'a.sid', function(e) {
 			e.preventDefault();
@@ -2198,16 +2992,16 @@ $.extend(UI, {
 		}).on('click', 'a.status', function(e) {
 			e.preventDefault();
 			e.stopPropagation();
-		}).on('click', 'section:not(.readonly) a.status', function(e) {
-			console.log('status');
+		}).on('click', 'section:not(.readonly) a.status', function() {
+//			console.log('status');
 			var segment = $(this).parents("section");
 			var statusMenu = $("ul.statusmenu", segment);
 
 			UI.createStatusMenu(statusMenu);
 			statusMenu.show();
-			var autoCloseStatusMenu = $('html').bind("click.vediamo", function(event) {
+			$('html').bind("click.outOfStatusMenu", function() {
 				$("ul.statusmenu").hide();
-				$('html').unbind('click.vediamo');
+				$('html').unbind('click.outOfStatusMenu');
 				UI.removeStatusMenu(statusMenu);
 			});
 		}).on('click', 'section.readonly, section.readonly a.status', function(e) {
@@ -2216,15 +3010,20 @@ $.extend(UI, {
 				return;
 			if (UI.someUserSelection)
 				return;
-
+			var msg = (UI.body.hasClass('archived'))? 'Job has been archived and cannot be edited.' : 'This part has not been assigned to you.';
 			UI.selectingReadonly = setTimeout(function() {
-				APP.alert({msg: 'This part has not been assigned to you.'});
+				APP.alert({msg: msg});
 			}, 200);
-		}).on('mousedown', 'section.readonly, section.readonly a.status', function(e) {
+
+		}).on('mousedown', 'section.readonly, section.readonly a.status', function() {
 			sel = window.getSelection();
 			UI.someUserSelection = (sel.type == 'Range') ? true : false;
-		}).on('dblclick', 'section.readonly', function(e) {
+		}).on('dblclick', 'section.readonly', function() {
 			clearTimeout(UI.selectingReadonly);
+		}).on('dblclick', '.matches .graysmall', function() {
+			UI.chooseSuggestion($(this).attr('data-item'));
+		}).on('dblclick', '.alternatives .graysmall', function() {
+			UI.chooseAlternative($(this));
 		}).on('blur', '.graysmall .translation', function(e) {
 			e.preventDefault();
 			UI.closeInplaceEditor($(this));
@@ -2237,6 +3036,10 @@ $.extend(UI, {
 			ed = $(this).parents('.graysmall').find('.translation');
 			UI.editContribution(UI.currentSegment, $(this).parents('.graysmall'));
 			UI.closeInplaceEditor(ed);
+		}).on('click', '.tab.alternatives .graysmall .goto a', function(e) {
+			e.preventDefault();
+			UI.scrollSegment($('#segment-' + $(this).attr('data-goto')), true);
+			UI.highlightEditarea($('#segment-' + $(this).attr('data-goto')));
 		});
 
 		$(".joblink").click(function(e) {
@@ -2262,35 +3065,43 @@ $.extend(UI, {
 		$('html').click(function() {
 			$(".menucolor").hide();
 		}).on('click', '#downloadProject', function(e) {
-			e.preventDefault();
-			if ($("#notifbox").hasClass("warningbox")) {
-				APP.confirm({
-					name: 'confirmDownload',
-					cancelTxt: 'Fix errors',
-					onCancel: 'goToFirstError',
-					callback: 'continueDownload',
-					okTxt: 'Continue',
-					msg: "Potential errors (missing tags, numbers etc.) found in the text. <br>If you continue, part of the content could be untranslated - look for the string \"UNTRANSLATED_CONTENT\" in the downloaded file(s).<br><br>Continue downloading or fix the error in MateCat:"
-				});
-			} else {
-				UI.continueDownload();
-			}
+            e.preventDefault();
+            if( $('#downloadProject').hasClass('disabled') ) return false;
+            //the translation mismatches are not a severe Error, but only a warn, so don't display Error Popup
+            if ( $("#notifbox").hasClass("warningbox") && UI.translationMismatches.total != UI.globalWarnings.length ) {
+                APP.confirm({
+                    name: 'confirmDownload',
+                    cancelTxt: 'Fix errors',
+                    onCancel: 'goToFirstError',
+                    callback: 'continueDownload',
+                    okTxt: 'Continue',
+                    msg: "Potential errors (missing tags, numbers etc.) found in the text. <br>If you continue, part of the content could be untranslated - look for the string \"UNTRANSLATED_CONTENT\" in the downloaded file(s).<br><br>Continue downloading or fix the error in MateCat:"
+                });
+            } else {
+                UI.continueDownload();
+            }
 		}).on('click', '.alert .close', function(e) {
 			e.preventDefault();
 			$('.alert').remove();
-		}).on('click', '.downloadtr-button .draft', function(e) {
+		}).on('click', '.downloadtr-button .draft', function() {
 			if (UI.isChrome) {
 				$('.download-chrome').addClass('d-open');
 				setTimeout(function() {
 					$('.download-chrome').removeClass('d-open');
 				}, 7000);
 			}
-		}).on('click', '#contextMenu #searchConcordance', function(e) {
+		}).on('click', '#contextMenu #searchConcordance', function() {
 			if ($('#contextMenu').attr('data-sid') == UI.currentSegmentId) {
 				UI.openConcordance();
 			} else {
 				$('#segment-' + $('#contextMenu').attr('data-sid') + ' .editarea').trigger('click', ['clicking', 'openConcordance']);
 			}
+		}).on('click', '#checkConnection', function(e) {
+			e.preventDefault();
+			UI.checkConnection();
+		}).on('click', '#statistics .meter a', function(e) {
+			e.preventDefault();
+			UI.gotoNextUntranslatedSegment();
 		});
 
 		$("#outer").on('click', 'a.percentuage', function(e) {
@@ -2333,14 +3144,14 @@ $.extend(UI, {
 			}
 			if (UI.debug)
 				console.log('Total onclick Editarea: ' + ((new Date()) - this.onclickEditarea));
-		}).on('keydown', '.editor .source, .editor .editarea', 'alt+meta+c', function(e) {
+		}).on('keydown', '.editor .source, .editor .editarea', UI.shortcuts.searchInConcordance.keystrokes.mac, function(e) {
 			e.preventDefault();
 			UI.preOpenConcordance();
-		}).on('keydown', '.editor .source, .editor .editarea', 'alt+ctrl+c', function(e) {
+		}).on('keydown', '.editor .source, .editor .editarea', UI.shortcuts.searchInConcordance.keystrokes.standard, function(e) {
 			e.preventDefault();
 			UI.preOpenConcordance();
 		}).on('keypress', '.editor .editarea', function(e) {
-			console.log('keypress: ', UI.editarea.html());
+//			console.log('keypress: ', UI.editarea.html());
 
 			if((e.which == 60)&&(UI.taglockEnabled)) { // opening tag sign
 //				console.log('KEYPRESS SU EDITAREA: ', UI.editarea.html());
@@ -2359,9 +3170,12 @@ $.extend(UI, {
 			}
 			setTimeout(function() {
 				if($('.tag-autocomplete').length) {
+					console.log('ecco');
+					console.log('prima del replace: ', UI.editarea.html());
 //					console.log(UI.editarea.html().match(/^(<span class="tag-autocomplete-endcursor"\><\/span>&lt;)/gi) != null);
 					if(UI.editarea.html().match(/^(<span class="tag-autocomplete-endcursor"\><\/span>&lt;)/gi) !== null) {
 						UI.editarea.html(UI.editarea.html().replace(/^(<span class="tag-autocomplete-endcursor"\><\/span>&lt;)/gi, '&lt;<span class="tag-autocomplete-endcursor"><\/span>'));
+//						console.log('dopo del replace: ', UI.editarea.html());
 					}
 					UI.checkAutocompleteTags();
 				}
@@ -2387,55 +3201,51 @@ $.extend(UI, {
 					UI.saveInUndoStack('cancel');
 					UI.currentSegmentQA();
 				} else {
-//					try {
-//						console.log(UI.editarea.text().match(/<.*?\>/gi) == null);
-						var numTagsBefore = (UI.editarea.text().match(/<.*?\>/gi) != null)? UI.editarea.text().match(/<.*?\>/gi).length : 0;
-						var numSpacesBefore = UI.editarea.text().match(/\s/gi).length;
 
-						saveSelection('noMove');
-						parentTag = $('span.locked', UI.editarea).has('.rangySelectionBoundary');
-						isInsideTag = $('span.locked .rangySelectionBoundary', UI.editarea).length;
-						parentMark = $('.searchMarker', UI.editarea).has('.rangySelectionBoundary');
-						isInsideMark = $('.searchMarker .rangySelectionBoundary', UI.editarea).length;
-						restoreSelection();
-						
-						// insideTag management
-						if ((e.which == 8)&&(isInsideTag)) {
+					var numTagsBefore = (UI.editarea.text().match(/<.*?\>/gi) !== null)? UI.editarea.text().match(/<.*?\>/gi).length : 0;
+					var numSpacesBefore = UI.editarea.text().match(/\s/gi).length;
+					console.log('a: ', UI.editarea.html());
+					saveSelection();
+					console.log('b: ', UI.editarea.html());
+					parentTag = $('span.locked', UI.editarea).has('.rangySelectionBoundary');
+					isInsideTag = $('span.locked .rangySelectionBoundary', UI.editarea).length;
+					parentMark = $('.searchMarker', UI.editarea).has('.rangySelectionBoundary');
+					isInsideMark = $('.searchMarker .rangySelectionBoundary', UI.editarea).length;
+					restoreSelection();
+					console.log('c: ', UI.editarea.html());
+					console.log('isInsideTag: ', isInsideTag);
+
+					// insideTag management
+					if ((e.which == 8)&&(isInsideTag)) {
 //							console.log('AA: ', UI.editarea.html()); 
-							parentTag.remove();
-							e.preventDefault();
+						parentTag.remove();
+						e.preventDefault();
 //							console.log('BB: ', UI.editarea.html());
-						}
+					}
 //						console.log(e.which + ' - ' + isInsideTag);
-						setTimeout(function() {
-							if ((e.which == 46)&&(isInsideTag)) {
-								console.log('inside tag');
-							}
+					setTimeout(function() {
+						if ((e.which == 46)&&(isInsideTag)) {
+							console.log('inside tag');
+						}
 //							console.log(e.which + ' - ' + isInsideTag);
 //							console.log('CC: ', UI.editarea.html());
-							var numTagsAfter = (UI.editarea.text().match(/<.*?\>/gi) != null)? UI.editarea.text().match(/<.*?\>/gi).length : 0;
-							var numSpacesAfter = UI.editarea.text().match(/\s/gi).length;
-							if (numTagsAfter < numTagsBefore)
-								UI.saveInUndoStack('cancel');
-							if (numSpacesAfter < numSpacesBefore)
-								UI.saveInUndoStack('cancel');
+						var numTagsAfter = (UI.editarea.text().match(/<.*?\>/gi) !== null)? UI.editarea.text().match(/<.*?\>/gi).length : 0;
+						var numSpacesAfter = (UI.editarea.text())? UI.editarea.text().match(/\s/gi).length : 0;
+						if (numTagsAfter < numTagsBefore)
+							UI.saveInUndoStack('cancel');
+						if (numSpacesAfter < numSpacesBefore)
+							UI.saveInUndoStack('cancel');
 //							console.log('DD: ', UI.editarea.html());
 
-						}, 50);
-						
-						// insideMark management
-						if ((e.which == 8)&&(isInsideMark)) {
-							console.log('inside mark'); 
-						}
-				
-//						selectText(this);
+					}, 50);
+
+					// insideMark management
+					if ((e.which == 8)&&(isInsideMark)) {
+						console.log('inside mark'); 
+					}
 
 
-//					} catch (e) {
-						//Error: Cannot read property 'length' of null 
-						//when we are on first character position in edit area and try to BACKSPACE
-						//console.log(e.message); 
-//					}
+
 				}
 			}
 			
@@ -2526,7 +3336,7 @@ $.extend(UI, {
 				}
 			}
 
-			if (!((e.which == 37) || (e.which == 38) || (e.which == 39) || (e.which == 40))) { // not arrows
+			if (!((e.which == 37) || (e.which == 38) || (e.which == 39) || (e.which == 40) || (e.which == 8) || (e.which == 46) || (e.which == 91))) { // not arrows, backspace, canc or cmd
 				if (UI.body.hasClass('searchActive')) {
 					UI.resetSearch();
 				}
@@ -2556,11 +3366,13 @@ $.extend(UI, {
 				UI.spellCheck();
 			}
 
-		}).on('input', '.editarea', function(e) {console.log('input in editarea');
-			if (UI.body.hasClass('searchActive')) {
-				console.log('on input');
-				UI.resetSearch();
-			}
+		}).on('input', '.editarea', function() {
+//			console.log('input in editarea');
+//			DA SPOSTARE IN DROP E PASTE
+//			if (UI.body.hasClass('searchActive')) {
+//				console.log('on input');
+//				UI.resetSearch();
+//			}
 			UI.currentSegment.addClass('modified').removeClass('waiting_for_check_result');
 			if (UI.draggingInsideEditarea) {
 				$(UI.tagToDelete).remove();
@@ -2568,19 +3380,14 @@ $.extend(UI, {
 				UI.tagToDelete = null;
 			}
 			if (UI.droppingInEditarea) {
-				console.log('prima del clean 1: ', UI.editarea.html());
-//				$('.editor .editarea span[style*="color"]+br').remove();
-//				console.log('prima del clean 2: ', UI.editarea.html());
 				UI.cleanDroppedTag(UI.editarea, UI.beforeDropEditareaHTML);
 			}
 			if (!UI.body.hasClass('searchActive'))
 				setTimeout(function() {
-//					console.log('before tag lock: ', UI.editarea.html());
 					UI.lockTags(UI.editarea);
-//					console.log('after tag lock: ', UI.editarea.html());
 				}, 10);
 			UI.registerQACheck();
-		}).on('input', '.editor .cc-search .input', function(e) {
+		}).on('input', '.editor .cc-search .input', function() {
 			UI.markTagsInSearch($(this));
 		}).on('click', '.editor .source .locked,.editor .editarea .locked', function(e) {
 			e.preventDefault();
@@ -2637,7 +3444,9 @@ $.extend(UI, {
 				*/
 			}
 			return true;
-		}).on('dragstart', '.editor .editarea .locked', function(e) {
+		}).on('dragstart', '.editor .editarea .locked', function() {
+//			console.log('dragstart tag: ', $(this));
+//			$(this).addClass('dragged');
 			var selection = window.getSelection();
 			var range = selection.getRangeAt(0);
 			if (range.startContainer.data != range.endContainer.data)
@@ -2645,6 +3454,13 @@ $.extend(UI, {
 
 			UI.draggingInsideEditarea = true;
 			UI.tagToDelete = $(this);
+//		}).on('drop', '.editor .editarea .locked', function() {
+//			console.log('dropped tag: ', $(this));
+		}).on('drag', '.editarea .locked, .source .locked', function(e) {
+//			console.log('a tag is dragged');
+//			console.log('e: ', $(this).text());
+			UI.draggingTagIsOpening = ($(this).text().match(/^<\//gi))? false : true;
+			UI.draggingTagText = $(this).text();
 		}).on('drop', '.editor .editarea', function(e) {
 			if (e.stopPropagation) {
 				e.stopPropagation(); // stops the browser from redirecting.
@@ -2657,21 +3473,45 @@ $.extend(UI, {
 				segment: UI.currentSegment
 			});
 			UI.saveInUndoStack('drop');
-			console.log('bbb: ', UI.editarea.html());
+//			UI.beforeDropEditareaHTMLtreated = UI.editarea.html();
 			$(this).css('float', 'left');
 			setTimeout(function() {
+				var strChunk = UI.editarea.html().replace(/(^.*?)&nbsp;(<span contenteditable\="false" class\="locked).*?$/gi, '$1');
+
+				// Check if the browser has cancelled a space when dropping the tag (this happen when dropping near a space). 
+				// In this case, we have to add it again because we are also deleting the &nbsp; added by the browser.
+				// We cannot detect if the user has dropped immediately before or after the space, so we decide where to put it according if it is an opening tag or a closing tag,
+				if(UI.beforeDropEditareaHTML.indexOf(strChunk + ' ') >= 0) {  
+					toAddBefore = (UI.draggingTagIsOpening)? ' ' : ''; 
+					toAddAfter = (UI.draggingTagIsOpening)? '' : ' ';
+				} else {
+					toAddBefore = toAddAfter = '';
+				}
+				UI.draggingTagIsOpening = null;
+				UI.editarea.html(UI.editarea.html().replace(/&nbsp;(<span contenteditable\="false" class\="locked)/gi, toAddBefore + '$1').replace(/(&gt;<\/span>)&nbsp;/gi, '$1' + toAddAfter));
+				var nn = 0;
+				$('.locked', UI.editarea).each(function(index) {
+					if($(this).text() == UI.draggingTagText) {
+						uniqueEl = $(this);
+						nn++;
+						return false;
+					}
+				})
+				if(nn > 0) {
+					setCursorPosition(uniqueEl[0].nextSibling, 0);
+				}
+				
+				UI.draggingTagText = null;
 				UI.editarea.removeAttr('style');
-				console.log('ccc: ', UI.editarea.html());
 				UI.saveInUndoStack('drop');
 			}, 100);
-		}).on('drop paste', '.editor .cc-search .input, .editor .gl-search .input', function(e) {
+		}).on('drop paste', '.editor .cc-search .input, .editor .gl-search .input', function() {
 			UI.beforeDropSearchSourceHTML = UI.editarea.html();
 			UI.currentConcordanceField = $(this);
 			setTimeout(function() {
 				UI.cleanDroppedTag(UI.currentConcordanceField, UI.beforeDropSearchSourceHTML);
 			}, 100);
-		}).on('click', '.editor .editarea .locked.selected', function(e) {
-		}).on('click', '.editor .editarea, .editor .source', function(e) {
+		}).on('click', '.editor .editarea, .editor .source', function() {
 			$('.selected', $(this)).removeClass('selected');
 			UI.currentSelectedText = false;
 			UI.currentSearchInTarget = false;
@@ -2683,16 +3523,21 @@ $.extend(UI, {
 
 			var skipChange = false;
 			if (w == 'next-untranslated') {
-				console.log('entra');
+				console.log('next-untranslated');
 				if (!UI.segmentIsLoaded(UI.nextUntranslatedSegmentId)) {
+					console.log('il nextuntranslated non è caricato: ', UI.nextUntranslatedSegmentId);
 					UI.changeStatus(this, 'translated', 0);
 					skipChange = true;
 					if (!UI.nextUntranslatedSegmentId) {
+						console.log('a');
 						$('#' + $(this).attr('data-segmentid') + '-close').click();
 					} else {
+						console.log('b');
 						UI.reloadWarning();
 					}
 
+				} else {
+					console.log('il nextuntranslated è già caricato: ', UI.nextUntranslatedSegmentId);
 				}
 			} else {
 				if (!$(UI.currentSegment).nextAll('section').length) {
@@ -2703,7 +3548,7 @@ $.extend(UI, {
 			}
 
 			UI.checkHeaviness();
-			if (UI.blockButtons) {
+			if ((UI.blockButtons)&&(!UI.autoFailoverEnabled)) {
 				if (UI.segmentIsLoaded(UI.nextUntranslatedSegmentId) || UI.nextUntranslatedSegmentId === '') {
 					console.log('segment is already loaded');
 				} else {
@@ -2733,32 +3578,31 @@ $.extend(UI, {
 			UI.lockTags(UI.editarea);
 			UI.changeStatusStop = new Date();
 			UI.changeStatusOperations = UI.changeStatusStop - UI.buttonClickStop;
-		}).on('click', 'a.approved', function(e) {
+		}).on('click', 'a.approved', function() {
 			UI.setStatusButtons(this);
 			$(".editarea", UI.nextUntranslatedSegment).click();
 
 			UI.changeStatus(this, 'approved', 0);
 			UI.changeStatusStop = new Date();
 			UI.changeStatusOperations = UI.changeStatusStop - UI.buttonClickStop;
-
-		}).on('click', 'a.d, a.a, a.r, a.f', function(e) {
+		}).on('click', 'a.d, a.a, a.r, a.f', function() {
 			var segment = $(this).parents("section");
 			$("a.status", segment).removeClass("col-approved col-rejected col-done col-draft");
 			$("ul.statusmenu", segment).toggle();
 			return false;
-		}).on('click', 'a.d', function(e) {
+		}).on('click', 'a.d', function() {
 			UI.changeStatus(this, 'translated', 1);
-		}).on('click', 'a.a', function(e) {
+		}).on('click', 'a.a', function() {
 			UI.changeStatus(this, 'approved', 1);
-		}).on('click', 'a.r', function(e) {
+		}).on('click', 'a.r', function() {
 			UI.changeStatus(this, 'rejected', 1);
-		}).on('click', 'a.f', function(e) {
+		}).on('click', 'a.f', function() {
 			UI.changeStatus(this, 'draft', 1);
 		}).on('click', '.editor .outersource .copy', function(e) {
 //        }).on('click', 'a.copysource', function(e) {
 			e.preventDefault();
 			UI.copySource();
-		}).on('click', '.tagmenu, .warning, .viewer, .notification-box li a', function(e) {
+		}).on('click', '.tagmenu, .warning, .viewer, .notification-box li a', function() {
 			return false;
 		}).on('click', '.tab-switcher-tm', function(e) {
 			e.preventDefault();
@@ -2782,6 +3626,15 @@ $.extend(UI, {
 			$('.editor .sub-editor').hide();
 			$('.editor .sub-editor.glossary').show();
 			$('.gl-search .search-source').focus();
+		}).on('click', '.tab-switcher-al', function(e) {
+			e.preventDefault();
+			$('.editor .submenu .active').removeClass('active');
+			$(this).addClass('active');
+			$('.editor .sub-editor').hide();
+			$('.editor .sub-editor.alternatives').show();
+		}).on('click', '.alternatives a', function(e) {
+			e.preventDefault();
+			$('.editor .tab-switcher-al').click();
 		}).on('click', '.sub-editor.glossary .overflow a.trash', function(e) {
 			e.preventDefault();
 			ul = $(this).parents('ul.graysmall').first();
@@ -2804,11 +3657,10 @@ $.extend(UI, {
 					id_job: config.job_id,
 					password: config.password
 				},
-				context: [UI.currentSegment, next],
-				success: function(d) {
+				error: function() {
+					UI.failedConnection(0, 'glossary');
 				},
-				complete: function() {
-				}
+				context: [UI.currentSegment, next]
 			});
 		}).on('keydown', '.sub-editor .cc-search .search-source', function(e) {
 			if (e.which == 13) { // enter
@@ -2853,7 +3705,7 @@ $.extend(UI, {
 					UI.getGlossary(segment, false);
 				}
 			}
-		}).on('input', '.sub-editor .gl-search .search-target', function(e) {
+		}).on('input', '.sub-editor .gl-search .search-target', function() {
 			gl = $(this).parents('.gl-search').find('.set-glossary');	
 			if($(this).text() === '') {
 				gl.addClass('disabled');
@@ -2878,7 +3730,7 @@ $.extend(UI, {
 			$('#placeHolder').remove();
 			var node = document.createElement("div");
 			node.setAttribute('id', 'placeHolder');
-			removeSelectedText($(this));
+			removeSelectedText();
 			insertNodeAtCursor(node);
 			if(UI.isFirefox) pasteHtmlAtCaret('<div id="placeHolder"></div>');
 			var ev = (UI.isFirefox) ? e : event;
@@ -2898,6 +3750,31 @@ $.extend(UI, {
 			e.preventDefault();
 			var save = (typeof param == 'undefined') ? 'noSave' : param;
 			UI.closeSegment(UI.currentSegment, 1, save);
+		}).on('click', '.concordances .more', function(e) {
+			e.preventDefault();
+			tab = $(this).parents('.concordances');
+			container = $('.overflow', $(tab));
+//			console.log($(container).height());
+			if($(tab).hasClass('extended')) {
+				UI.setExtendedConcordances(false);
+
+/*				
+				$(tab).removeClass('extended')
+//				console.log(container.height());
+				$(container).removeAttr('style');
+//				console.log($(container).height());
+				$(this).text('More');
+*/
+			} else {
+				UI.setExtendedConcordances(true);
+				
+//				$(container).css('height', $(tab).height() + 'px');
+//				$(tab).addClass('extended');
+//				$(this).text('Less');
+//				UI.custom.extended_concordance = true;
+//				UI.saveCustomization();
+			}
+			$(this).parents('.matches').toggleClass('extended');
 		}).on('keyup', '.editor .editarea', function(e) {
 			if ( e.which == 13 ){
 //				$(this).find( 'br:not([class])' ).replaceWith( $('<br class="' + config.crPlaceholderClass + '" />') );
@@ -2948,7 +3825,7 @@ $.extend(UI, {
 		});
 		$("#jobMenu").on('click', 'li:not(.currSegment)', function(e) {
 			e.preventDefault();
-			UI.renderAndScrollToSegment($(this).attr('data-segment'), true);
+			UI.renderAndScrollToSegment($(this).attr('data-segment'));
 		});
 		$("#jobMenu").on('click', 'li.currSegment', function(e) {
 			e.preventDefault();
@@ -3059,26 +3936,26 @@ $.extend(UI, {
 
 				$("mark.currSearchItem").text(txt);
 				segment = $("mark.currSearchItem").parents('section');
-				UI.setTranslation(segment, UI.getStatus(segment), 'replace');
+				UI.setTranslation($(segment).attr('id').split('-')[1], UI.getStatus(segment), 'replace');
 				UI.updateSearchDisplayCount(segment);
 				$(segment).attr('data-searchItems', $('mark.searchMarker', segment).length);
 
 				UI.gotoNextResultItem(true);
 			}
 		});
-		$("#enable-replace").on('change', function(e) {
+		$("#enable-replace").on('change', function() {
 			if (($('#enable-replace').is(':checked')) && ($('#search-target').val() !== '')) {
 				$('#replace-target, #exec-replace, #exec-replaceall').removeAttr('disabled');
 			} else {
 				$('#replace-target, #exec-replace, #exec-replaceall').attr('disabled', 'disabled');
 			}
 		});
-		$("#search-source, #search-target").on('input', function(e) {
+		$("#search-source, #search-target").on('input', function() {
 			if (UI.checkSearchChanges()) {
 				UI.setFindFunction('find');
 			}
 		});
-		$("#search-target").on('input', function(e) {
+		$("#search-target").on('input', function() {
 			if ($(this).val() === '') {
 				$('#replace-target, #exec-replace, #exec-replaceall').attr('disabled', 'disabled');
 			} else {
@@ -3086,12 +3963,12 @@ $.extend(UI, {
 					$('#replace-target, #exec-replace, #exec-replaceall').removeAttr('disabled');
 			}
 		});
-		$("#select-status").on('change', function(e) {
+		$("#select-status").on('change', function() {
 			if (UI.checkSearchChanges()) {
 				UI.setFindFunction('find');
 			}
 		});
-		$("#match-case, #exact-match").on('change', function(e) {
+		$("#match-case, #exact-match").on('change', function() {
 			UI.setFindFunction('find');
 		});
 		this.initEnd = new Date();
@@ -3109,14 +3986,15 @@ $.extend(UI, {
  */
 $.extend(UI, {
 	chooseSuggestion: function(w) {
-		this.copySuggestionInEditarea(this.currentSegment, $('.editor ul[data-item=' + w + '] li.b .translation').text(), $('.editor .editarea'), $('.editor ul[data-item=' + w + '] ul.graysmall-details .percent').text(), false, false, w);
+//		console.log($('.editor ul[data-item=' + w + '] li.b .translation'));
+		this.copySuggestionInEditarea(this.currentSegment, $('.editor .tab.matches ul[data-item=' + w + '] li.b .translation').text(), $('.editor .editarea'), $('.editor .tab.matches ul[data-item=' + w + '] ul.graysmall-details .percent').text(), false, false, w);
 		this.lockTags(this.editarea);
 		this.setChosenSuggestion(w);
 
-		this.editarea.focus().effect("highlight", {}, 1000);
+		this.editarea.focus();
+		this.highlightEditarea();
 	},
 	copySuggestionInEditarea: function(segment, translation, editarea, match, decode, auto, which) {
-
 		if (typeof (decode) == "undefined") {
 			decode = false;
 		}
@@ -3151,9 +4029,15 @@ $.extend(UI, {
 			translation: translation
 		});
 	},
-	getContribution: function(segment, next) {
+	getContribution: function(segment, next) {//console.log('getContribution');
+//		console.log('next: ', next);
+//		console.log('next: ', next);
+//		console.log('getContribution di ', segment);
 		var n = (next === 0) ? $(segment) : (next == 1) ? $('#segment-' + this.nextSegmentId) : $('#segment-' + this.nextUntranslatedSegmentId);
+//		console.log('n: ', n);
+//		console.log('and this is where class loaded is evaluated');
 		if ($(n).hasClass('loaded')) {
+//			console.log('hasclass loaded');
 			this.spellCheck();
 			if (next) {
 				this.nextIsLoaded = true;
@@ -3174,22 +4058,27 @@ $.extend(UI, {
 		}
 		var id = n.attr('id'); 
 		var id_segment = id.split('-')[1];
-/*
+
         if( config.brPlaceholdEnabled ) {
             var txt = this.postProcessEditarea(n, '.source');
         } else {
             var txt = $('.source', n).text();
         }
-*/
-		var txt = $('.source', n).text();
+
+//		var txt = $('.source', n).text();
 		txt = view2rawxliff(txt);
 		// Attention: As for copysource, what is the correct file format in attributes? I am assuming html encoded and "=>&quot;
 		//txt = txt.replace(/&quot;/g,'"');
-
 		if (!next) {
+//				console.log('spinner by getcontribution');
 			$(".loader", n).addClass('loader_on');
 		}
-
+		if((next == 2)&&(this.nextSegmentId == this.nextUntranslatedSegmentId)) {
+//			console.log('il successivo e il successivo non tradotto sono lo stesso');
+			return false;
+		}
+//		console.log('this.nextSegmentId: ', this.nextSegmentId);
+//		console.log('this.nextUntranslatedSegmentId: ', this.nextUntranslatedSegmentId);
 		APP.doRequest({
 			data: {
 				action: 'getContribution',
@@ -3202,10 +4091,16 @@ $.extend(UI, {
 				id_translator: config.id_translator
 			},
 			context: $('#' + id),
+			error: function() {
+				UI.failedConnection(0, 'getContribution');
+			},
 			success: function(d) {
+//				console.log(d);
+				if (d.error.length)
+					UI.processErrors(d.error, 'getContribution');
 				UI.getContribution_success(d, this);
 			},
-			complete: function(d) {
+			complete: function() {
 				UI.getContribution_complete(n);
 			}
 		});
@@ -3215,11 +4110,14 @@ $.extend(UI, {
 	},
 	getContribution_success: function(d, segment) {
 //		console.log(d.data.matches);
-//		localStorage.setItem($(segment).attr('id').split('-')[1], JSON.stringify(d.data.matches));
+		localStorage.setItem('contribution-' + config.job_id + '-' + $(segment).attr('id').split('-')[1], JSON.stringify(d));
 //		console.log(localStorage.getItem($(segment).attr('id').split('-')[1]));
 //		console.log(localStorage.getItem('4679214'));
 //		console.log(!localStorage.getItem('4679214'));
 //		console.log(localStorage.getItem('4679215'));
+		this.processContributions(d, segment);
+	},
+	processContributions: function(d, segment) {
 		this.renderContributions(d, segment);
 		if ($(segment).attr('id').split('-')[1] == UI.currentSegmentId)
 			this.currentSegmentQA();
@@ -3233,7 +4131,7 @@ $.extend(UI, {
 			$('.submenu li.matches a span', segment).text('(' + d.data.matches.length + ')');
 		} else {
 			$(".sbm > .matches", segment).hide();
-		}
+		}		
 	},
 	renderContributions: function(d, segment) {
 		var isActiveSegment = $(segment).hasClass('editor');
@@ -3307,21 +4205,23 @@ $.extend(UI, {
 			UI.markSuggestionTags(segment);
 			UI.setDeleteSuggestion(segment);
 			UI.lockTags();
-			if (copySuggestionDone) {
-				if (isActiveSegment) {
-				}
-			}
+//			if (copySuggestionDone) {
+//				if (isActiveSegment) {
+//				}
+//			}
 
 			$('.translated', segment).removeAttr('disabled');
 			$('.draft', segment).removeAttr('disabled');
 		} else {
 			if (UI.debug)
 				console.log('no matches');
+console.log('add class loaded for segment ' + segment_id+ ' in renderContribution 2')
 			$(segment).addClass('loaded');
 			$('.sub-editor.matches .overflow', segment).append('<ul class="graysmall message"><li>Sorry. Can\'t help you this time. Check the language pair if you feel this is weird.</li></ul>');
 		}
 	},
-	setContribution: function(segment, status, byStatus) {
+	setContribution: function(segment_id, status, byStatus) {
+		segment = $('#segment-' + segment_id);
 		if ((status == 'draft') || (status == 'rejected'))
 			return false;
 
@@ -3343,6 +4243,7 @@ $.extend(UI, {
 		this.updateContribution(source, target);
 	},
 	updateContribution: function(source, target) {
+		reqArguments = arguments;
 		source = view2rawxliff(source);
 		target = view2rawxliff(target);
 		APP.doRequest({
@@ -3351,13 +4252,17 @@ $.extend(UI, {
 				id_job: config.job_id,
 				source: source,
 				target: target,
-				source_lang: config.source_lang,
-				target_lang: config.target_lang,
+				source_lang: config.source_rfc,
+				target_lang: config.target_rfc,
 				password: config.password,
 				id_translator: config.id_translator,
 				private_translator: config.private_translator,
 				id_customer: config.id_customer,
 				private_customer: config.private_customer
+			},
+			context: reqArguments,
+			error: function() {
+				UI.failedConnection(this, 'updateContribution');
 			},
 			success: function(d) {
 				if (d.error.length)
@@ -3365,7 +4270,9 @@ $.extend(UI, {
 			}
 		});
 	},
-	setContributionMT: function(segment, status, byStatus) {
+	setContributionMT: function(segment_id, status, byStatus) {
+		segment = $('#segment-' + segment_id);
+		reqArguments = arguments;
 		if ((status == 'draft') || (status == 'rejected'))
 			return false;
 		var source = $('.source', segment).text();
@@ -3379,13 +4286,13 @@ $.extend(UI, {
 			return false;
 		}
 		target = view2rawxliff(target);
-		var languages = $(segment).parents('article').find('.languages');
-		var source_lang = $('.source-lang', languages).text();
-		var target_lang = $('.target-lang', languages).text();
-		var id_translator = config.id_translator;
-		var private_translator = config.private_translator;
-		var id_customer = config.id_customer;
-		var private_customer = config.private_customer;
+//		var languages = $(segment).parents('article').find('.languages');
+//		var source_lang = $('.source-lang', languages).text();
+//		var target_lang = $('.target-lang', languages).text();
+//		var id_translator = config.id_translator;
+//		var private_translator = config.private_translator;
+//		var id_customer = config.id_customer;
+//		var private_customer = config.private_customer;
 
 		var info = $(segment).attr('id').split('-');
 		var id_segment = info[1];
@@ -3404,6 +4311,10 @@ $.extend(UI, {
 				time_to_edit: time_to_edit,
 				id_job: config.job_id,
 				chosen_suggestion_index: chosen_suggestion
+			},
+			context: reqArguments,
+			error: function() {
+				UI.failedConnection(this, 'setContributionMT');
 			},
 			success: function(d) {
 				if (d.error.length)
@@ -3439,6 +4350,9 @@ $.extend(UI, {
 					tra: target,
 					id_translator: config.id_translator
 				},
+				error: function() {
+					UI.failedConnection(0, 'deleteContribution');
+				},
 				success: function(d) {
 					UI.setDeleteSuggestion_success(d);
 				}
@@ -3454,49 +4368,42 @@ $.extend(UI, {
 		$(".editor .matches .graysmall").each(function(index) {
 			$(this).find('.graysmall-message').text(UI.suggestionShortcutLabel + (index + 1));
 			$(this).attr('data-item', index + 1);
-			UI.reinitMMShortcuts();
+//			UI.reinitMMShortcuts();
 		});
 	},
-	reinitMMShortcuts: function(a) {
+	reinitMMShortcuts: function() {//console.log('reinitMMShortcuts');
 		var keys = (this.isMac) ? 'alt+meta' : 'alt+ctrl';
 		$('body').unbind('keydown.alt1').unbind('keydown.alt2').unbind('keydown.alt3').unbind('keydown.alt4').unbind('keydown.alt5');
 		$("body, .editarea").bind('keydown.alt1', keys + '+1', function(e) {
 			e.preventDefault();
 			e.stopPropagation();
-//            if (e.which != 97) {
 			UI.chooseSuggestion('1');
-//            }
 		}).bind('keydown.alt2', keys + '+2', function(e) {
 			e.preventDefault();
 			e.stopPropagation();
-//            if (e.which != 98) {
 			UI.chooseSuggestion('2');
-//            }
 		}).bind('keydown.alt3', keys + '+3', function(e) {
 			e.preventDefault();
 			e.stopPropagation();
-//            if (e.which != 99) {
 			UI.chooseSuggestion('3');
-//            }
 		}).bind('keydown.alt4', keys + '+4', function(e) {
 			e.preventDefault();
 			e.stopPropagation();
-//            if (e.which != 100) {
 			UI.chooseSuggestion('4');
-//            }
 		}).bind('keydown.alt5', keys + '+5', function(e) {
 			e.preventDefault();
 			e.stopPropagation();
-//            if (e.which != 101) {
 			UI.chooseSuggestion('5');
-//            }
+		}).bind('keydown.alt6', keys + '+6', function(e) {
+			e.preventDefault();
+			e.stopPropagation();
+			UI.chooseSuggestion('6');
 		}); 
 	},
 	setChosenSuggestion: function(w) {
 		this.editarea.data('lastChosenSuggestion', w);
 	},
 });
-
 
 /*
 	Component: ui.tags
@@ -3555,10 +4462,10 @@ $.extend(UI, {
 	disableTagMark: function() {
 		this.taglockEnabled = false;
 		this.body.addClass('tagmarkDisabled');
-		$('.source span.locked').each(function(index) {
+		$('.source span.locked').each(function() {
 			$(this).replaceWith($(this).html());
 		});
-		$('.editarea span.locked').each(function(index) {
+		$('.editarea span.locked').each(function() {
 			$(this).replaceWith($(this).html());
 		});
 	},
@@ -3624,7 +4531,7 @@ $.extend(UI, {
 			return false;
 		if (this.noTagsInSegment())
 			return false;
-		$(editarea).first().each(function(index) {
+		$(editarea).first().each(function() {
 			saveSelection();
 			var tx = $(this).html();
 			brTx1 = (UI.isFirefox)? "<pl class=\"locked\" contenteditable=\"false\">$1</pl>" : "<pl contenteditable=\"false\" class=\"locked\">$1</pl>";
@@ -3680,13 +4587,12 @@ $.extend(UI, {
 	},
 	
 	// TAG CLEANING
-	cleanDroppedTag: function(area, beforeDropHTML) {console.log('clean');
-
+	cleanDroppedTag: function(area, beforeDropHTML) {
 		if (area == this.editarea) {
 			this.droppingInEditarea = false;
 
-			var diff = this.dmp.diff_main(beforeDropHTML, $(area).html());
-			var draggedText = '';
+			diff = this.dmp.diff_main(beforeDropHTML, $(area).html());
+			draggedText = '';
 			$(diff).each(function() {
 				if (this[0] == 1) {
 					draggedText += this[1];
@@ -3694,72 +4600,62 @@ $.extend(UI, {
 			});
 			draggedText = draggedText.replace(/^(\&nbsp;)(.*?)(\&nbsp;)$/gi, "$2");
 			dr2 = draggedText.replace(/(<br>)$/, '').replace(/(<span.*?>)\&nbsp;/,'$1');
-//			dr2 = draggedText.replace(/(<span.*?>)\&nbsp;/,'$1');
-			area.html(area.html().replace(draggedText, dr2));
-			console.log('111: ', UI.editarea.html());
 
-			var div = document.createElement("div");
+			area.html(area.html().replace(draggedText, dr2));
+
+			div = document.createElement("div");
 			div.innerHTML = draggedText;
-			console.log('div html: ', $(div).html());
-			console.log('dragged text: ', draggedText);
-			var isMarkup = draggedText.match(/^<span style=\"font\-size\: 13px/gi);
+			isMarkup = draggedText.match(/^<span style=\"font\-size\: 13px/gi);
 			saveSelection();
 
-			$('.rangySelectionBoundary', area).last().remove();
+			if($('span .rangySelectionBoundary', area).length > 1) $('.rangySelectionBoundary', area).last().remove();
 			if($('span .rangySelectionBoundary', area).length) {
-				var spel = $('span', area).has('.rangySelectionBoundary');
-				var rsb = $('span .rangySelectionBoundary', area).detach();
+				spel = $('span', area).has('.rangySelectionBoundary');
+				rsb = $('span .rangySelectionBoundary', area).detach();
 				spel.after(rsb);
 			}
-			var phcode = $('.rangySelectionBoundary').last().outerHTML;
-			console.log('phcode: ', phcode);
+			phcode = $('.rangySelectionBoundary')[0].outerHTML;
 			$('.rangySelectionBoundary').text(this.cursorPlaceholder);
 
-	//		closeTag = '</' + $(div).text().trim().replace(/<(.*?)\s.*?\>/gi, "$1") + '>';
 			newTag = $(div).text();
-
-			var newText = area.text().replace(draggedText, newTag);
-			console.log('222: ', UI.editarea.html());
-			console.log(newText);
-			if(isMarkup) {
-				console.log('IS MARKUP!!!');
-				area.text(newText);
-			}
-			console.log('333: ', UI.editarea.html());
+			var cloneEl = area;
+			// encode br before textification
+			$('br', cloneEl).each(function() {
+				$(this).replaceWith('[**[br class="' + this.className + '"]**]');				
+			});
+			newText = cloneEl.text().replace(draggedText, newTag);
+			cloneEl = null;
 			if(typeof phcode == 'undefined') phcode = '';
-			console.log('phcode 1: ', phcode);
-			if(isMarkup) area.html(area.html().replace(this.cursorPlaceholder, phcode));
-			console.log('444: ', UI.editarea.html());
-			restoreSelection();
-			if(isMarkup) area.html(area.html().replace(this.cursorPlaceholder, ''));			
 
-			
+			area.text(newText);
+			area.html(area.html().replace(this.cursorPlaceholder, phcode));
+			restoreSelection();
+			area.html(area.html().replace(this.cursorPlaceholder, '').replace(/\[\*\*\[(.*?)\]\*\*\]/gi, "<$1>"));
+
 		} else {
 	// old cleaning code to be evaluated
-			var diff = this.dmp.diff_main(beforeDropHTML, $(area).html());
-			var draggedText = '';
+			diff = this.dmp.diff_main(beforeDropHTML, $(area).html());
+			draggedText = '';
 			$(diff).each(function() {
 				if (this[0] == 1) {
 					draggedText += this[1];
 				}
 			});
 			draggedText = draggedText.replace(/^(\&nbsp;)(.*?)(\&nbsp;)$/gi, "$2").replace(/(<br>)$/gi, '');
-			var div = document.createElement("div");
+			div = document.createElement("div");
 			div.innerHTML = draggedText;
 			saveSelection();
-			$('.rangySelectionBoundary', area).last().remove();
-			if($('span .rangySelectionBoundary', area).length) {
-				var spel = $('span', area).has('.rangySelectionBoundary');
-				var rsb = $('span .rangySelectionBoundary', area).detach();
+			$('.rangySelectionBoundary', area).last().remove(); // eventually removes a duplicated selectionBoundary
+			if($('span .rangySelectionBoundary', area).length) { // if there's a selectionBoundary inside a span, move the first after the latter
+				spel = $('span', area).has('.rangySelectionBoundary');
+				rsb = $('span .rangySelectionBoundary', area).detach();
 				spel.after(rsb);
 			}
-			var phcode = $('.rangySelectionBoundary')[0].outerHTML;
+			phcode = $('.rangySelectionBoundary')[0].outerHTML;
 			$('.rangySelectionBoundary').text(this.cursorPlaceholder);
 
-	//		closeTag = '</' + $(div).text().trim().replace(/<(.*?)\s.*?\>/gi, "$1") + '>';
 			newTag = $(div).text();
-
-			var newText = area.text().replace(draggedText, newTag);
+			newText = area.text().replace(draggedText, newTag);
 			area.text(newText);
 			area.html(area.html().replace(this.cursorPlaceholder, phcode));
 			restoreSelection();
@@ -3790,9 +4686,10 @@ $.extend(UI, {
 	},	
 
 	// TAG AUTOCOMPLETE
-	checkAutocompleteTags: function() {
+	checkAutocompleteTags: function() {console.log('checkAutocompleteTags');
 		added = this.getPartialTagAutocomplete();
 //		console.log('added: "', added + '"');
+		console.log('aa: ', UI.editarea.html());
 		$('.tag-autocomplete li.hidden').removeClass('hidden');
 		$('.tag-autocomplete li').each(function() {
 			var str = $(this).text();
@@ -3802,7 +4699,9 @@ $.extend(UI, {
 				$(this).addClass('hidden');	
 			}
 		});
+		console.log('bb: ', UI.editarea.html());
 		if(!$('.tag-autocomplete li:not(.hidden)').length) {
+
 			$('.tag-autocomplete').addClass('empty');
 			if(UI.preCloseTagAutocomplete) {
 				UI.closeTagAutocompletePanel();
@@ -3810,9 +4709,12 @@ $.extend(UI, {
 			}
 			UI.preCloseTagAutocomplete = true;
 		} else {
+			console.log('dd: ', UI.editarea.html());
+
 			$('.tag-autocomplete li.current').removeClass('current');
 			$('.tag-autocomplete li:not(.hidden)').first().addClass('current');
 			$('.tag-autocomplete').removeClass('empty');		
+			console.log('ee: ', UI.editarea.html());
 			UI.preCloseTagAutocomplete = false;
 		}
 	},
@@ -3821,13 +4723,15 @@ $.extend(UI, {
 		UI.preCloseTagAutocomplete = false;
 	},
 	getPartialTagAutocomplete: function() {
+		console.log('inizio di getPartialTagAutocomplete: ', UI.editarea.html());
 //		var added = UI.editarea.html().match(/&lt;([&;"\w\s\/=]*?)<span class="tag-autocomplete-endcursor">/gi);
 		var added = UI.editarea.html().match(/&lt;(?:[a-z]*(?:&nbsp;)*["\w\s\/=]*)?<span class="tag-autocomplete-endcursor">/gi);
 //		console.log(added);
 		added = (added === null)? '' : htmlDecode(added[0].replace(/<span class="tag-autocomplete-endcursor"\>/gi, '')).replace(/\xA0/gi," ");
+		console.log('added: ', added);
 		return added;
 	},
-	openTagAutocompletePanel: function() {
+	openTagAutocompletePanel: function() {console.log('openTagAutocompletePanel');
 		if(!UI.sourceTags.length) return false;
 		$('.tag-autocomplete-marker').remove();
 
@@ -3837,45 +4741,26 @@ $.extend(UI, {
 		var endCursor = document.createElement("span");
 		endCursor.setAttribute('class', 'tag-autocomplete-endcursor');
 		insertNodeAtCursor(endCursor);
+		console.log('inserito endcursor: ', UI.editarea.html());
 		var offset = $('.tag-autocomplete-marker').offset();
 		var addition = ($(':first-child', UI.editarea).hasClass('tag-autocomplete-endcursor'))? 30 : 20;
 		$('.tag-autocomplete-marker').remove();
 		UI.body.append('<div class="tag-autocomplete"><ul></ul></div>');
+		var arrayUnique = function(a) {
+			return a.reduce(function(p, c) {
+				if (p.indexOf(c) < 0) p.push(c);
+				return p;
+			}, []);
+		};
+		UI.sourceTags = arrayUnique(UI.sourceTags);
 		$.each(UI.sourceTags, function(index) {
 			$('.tag-autocomplete ul').append('<li' + ((index === 0)? ' class="current"' : '') + '>' + this + '</li>');
 		});
-
+		
 		$('.tag-autocomplete').css('top', offset.top + addition);
 		$('.tag-autocomplete').css('left', offset.left);
 		this.checkAutocompleteTags();	
 	},
-/*
-// functions to handle the chrome bug on contenteditable false elements
-	jumpTag: function(pos) {
-		pos = pos || 'start';
-		setTimeout(function() {
-			saveSelection(pos);
-			parentTag = $('span.locked', UI.editarea).has(' .rangySelectionBoundary');
-			isInsideTag = $('span.locked .rangySelectionBoundary', UI.editarea).length;
-			restoreSelection();
-			if(isInsideTag) {
-				setCursorPosition(parentTag[0], pos);
-			}
-		}, 50);		
-	},
-
-	movePHOutOfTags: function(where) {
-		if($('span.locked .rangySelectionBoundary', this.editarea).length) {
-			ph = $('span.locked .rangySelectionBoundary', this.editarea);
-			if(where == 'start') {
-				$('span.locked', this.editarea).has('.rangySelectionBoundary').before(ph[0].outerHTML);
-			} else {
-				$('span.locked', this.editarea).has('.rangySelectionBoundary').after(ph[0].outerHTML);
-			}
-			ph.remove();
-		}
-	},
-*/
 });
 
 
@@ -3899,6 +4784,9 @@ $.extend(UI, {
 				num_results: UI.numMatchesResults,
 				id_translator: config.id_translator,
 				password: config.password
+			},
+			error: function() {
+				UI.failedConnection(this, 'getConcordance');
 			},
 			success: function(d) {
 				UI.renderConcordances(d, in_target);
@@ -3928,16 +4816,42 @@ $.extend(UI, {
 				this.openConcordance();
 			}
 		}
-	},	
+	},
+	setExtendedConcordances: function(extended) {
+		if(!extended) {
+			$('.sub-editor.concordances').removeClass('extended');
+			$('.sub-editor.concordances .overflow').removeAttr('style');	
+			if($('.sub-editor.concordances .more').length) {
+				$('.sub-editor.concordances .more').text('More');
+			} else {
+				$('.sub-editor.concordances', segment).append('<a href="#" class="more">More</a>');				
+			}
+			this.custom.extended_concordance = false;
+			this.saveCustomization();
+		} else {
+			$('.sub-editor.concordances .overflow').css('height', $('.sub-editor.concordances').height() + 'px');
+			$('.sub-editor.concordances').addClass('extended');
+			if($('.sub-editor.concordances .more').length) {
+				$('.sub-editor.concordances .more').text('Less');
+			} else {
+				$('.sub-editor.concordances', segment).append('<a href="#" class="more">Less</a>');				
+			}
+			this.custom.extended_concordance = true;
+			this.saveCustomization();
+		}
+	},
 	renderConcordances: function(d, in_target) {
 		segment = this.currentSegment;
 		segment_id = this.currentSegmentId;
+
 		$('.sub-editor.concordances .overflow .results', segment).empty();
 		$('.sub-editor.concordances .overflow .message', segment).remove();
 		if (d.data.matches.length) {
 			$.each(d.data.matches, function(index) {
 				if ((this.segment === '') || (this.translation === ''))
 					return;
+				prime = (index < UI.numDisplayContributionMatches)? ' prime' : '';
+
 				var disabled = (this.id == '0') ? true : false;
 				cb = this.created_by;
 				cl_suggestion = UI.getPercentuageClass(this.match);
@@ -3947,8 +4861,13 @@ $.extend(UI, {
 				var rightTxt = (in_target) ? this.segment : this.translation;
 				rightTxt = rightTxt.replace(/\#\{/gi, "<mark>");
 				rightTxt = rightTxt.replace(/\}\#/gi, "</mark>");
-				$('.sub-editor.concordances .overflow .results', segment).append('<ul class="graysmall" data-item="' + (index + 1) + '" data-id="' + this.id + '"><li class="sugg-source">' + ((disabled) ? '' : ' <a id="' + segment_id + '-tm-' + this.id + '-delete" href="#" class="trash" title="delete this row"></a>') + '<span id="' + segment_id + '-tm-' + this.id + '-source" class="suggestion_source">' + leftTxt + '</span></li><li class="b sugg-target"><!-- span class="switch-editing">Edit</span --><span id="' + segment_id + '-tm-' + this.id + '-translation" class="translation">' + rightTxt + '</span></li><ul class="graysmall-details"><!-- li class="percent ' + cl_suggestion + '">' + (this.match) + '</li --><li>' + this.last_update_date + '</li><li class="graydesc">Source: <span class="bold">' + cb + '</span></li></ul></ul>');
+				$('.sub-editor.concordances .overflow .results', segment).append('<ul class="graysmall' + prime + '" data-item="' + (index + 1) + '" data-id="' + this.id + '"><li class="sugg-source">' + ((disabled) ? '' : ' <a id="' + segment_id + '-tm-' + this.id + '-delete" href="#" class="trash" title="delete this row"></a>') + '<span id="' + segment_id + '-tm-' + this.id + '-source" class="suggestion_source">' + leftTxt + '</span></li><li class="b sugg-target"><!-- span class="switch-editing">Edit</span --><span id="' + segment_id + '-tm-' + this.id + '-translation" class="translation">' + rightTxt + '</span></li><ul class="graysmall-details"><!-- li class="percent ' + cl_suggestion + '">' + (this.match) + '</li --><li>' + this.last_update_date + '</li><li class="graydesc">Source: <span class="bold">' + cb + '</span></li></ul></ul>');
 			});
+			if(UI.custom.extended_concordance) {
+				UI.setExtendedConcordances(true);			
+			} else {
+				UI.setExtendedConcordances(false);
+			};
 		} else {
 			console.log('no matches');
 			$('.sub-editor.concordances .overflow', segment).append('<ul class="graysmall message"><li>Sorry. Can\'t help you this time. Check the language pair if you feel this is weird.</li></ul>');
@@ -3964,7 +4883,7 @@ $.extend(UI, {
 		elements.each(function() {
 //			UI.detectTags(this);
 		});
-	},
+	}
 });
 
 
@@ -3983,7 +4902,8 @@ $.extend(UI, {
 				id_job: config.job_id,
 				password: config.password
 			},
-			success: function(d) {
+			error: function() {
+				UI.failedConnection(0, 'deleteGlossaryItem');
 			}
 		});
 		dad = $(item).prevAll('.glossary-item').first();
@@ -4004,6 +4924,10 @@ $.extend(UI, {
 		}
 	},
 	getGlossary: function(segment, entireSegment, next) {
+//		console.log('get glossary');
+//		console.log('segment: ', segment);
+//		console.log('entireSegment: ', entireSegment);
+//		console.log('next: ', next);
 		if (typeof next != 'undefined') {
 			if(entireSegment) {
 				n = (next === 0) ? $(segment) : (next == 1) ? $('#segment-' + this.nextSegmentId) : $('#segment-' + this.nextUntranslatedSegmentId);
@@ -4011,11 +4935,13 @@ $.extend(UI, {
 		} else {
 			n = segment;
 		}
-		if(($(n).hasClass('glossary-loaded'))&&(entireSegment)) return false;
+//		if(($(n).hasClass('glossary-loaded'))&&(entireSegment)) return false;
 		$(n).addClass('glossary-loaded');
 		$('.gl-search', n).addClass('loading');
-		$('.sub-editor.glossary .overflow .results', n).empty();
-		$('.sub-editor.glossary .overflow .graysmall.message', n).empty();
+		if(config.tms_enabled) {
+			$('.sub-editor.glossary .overflow .results', n).empty();
+			$('.sub-editor.glossary .overflow .graysmall.message', n).empty();			
+		}
 		txt = (entireSegment)? $('.text .source', n).attr('data-original') : view2rawxliff($('.gl-search .search-source', n).text());
 
 		APP.doRequest({
@@ -4029,6 +4955,9 @@ $.extend(UI, {
 				password: config.password
 			},
 			context: [n, next],
+			error: function() {
+				UI.failedConnection(0, 'glossary');
+			},
 			success: function(d) {
 				if(typeof d.errors != 'undefined') {
 					if(d.errors[0].code == -1) {
@@ -4037,6 +4966,8 @@ $.extend(UI, {
 					}
 				}
 				UI.processLoadedGlossary(d, this);
+//				console.log('next?: ', this[1]);
+				if(!this[1]) UI.markGlossaryItemsInSource(d, this);
 			},
 			complete: function() {
 				$('.gl-search', UI.currentSegment).removeClass('loading');
@@ -4061,6 +4992,127 @@ $.extend(UI, {
 			$('.tab-switcher-gl a .number', segment).text('').attr('data-num', 0);	
 		}		
 	},
+	markGlossaryItemsInSource: function(d, context) {
+		if (Object.size(d.data.matches)) {
+			i = 0;	
+			cleanString = $('.source', UI.currentSegment).html();
+			var intervals = [];
+			$.each(d.data.matches, function(k) {
+				i++;
+				var re = new RegExp("(" + k.trim() + ")", "gi");
+				coso = cleanString.replace(re, '<mark>' + k + '</mark>');
+				int = {
+					x: coso.indexOf('<mark>'), 
+					y: coso.indexOf('</mark>') - 6
+				} 
+				intervals.push(int);
+			});
+			UI.intervalsUnion = [];
+/*
+			intervals = [
+				{
+					x: 27,
+					y: 29
+				},
+				{
+					x: 8,
+					y: 10
+				},
+				{
+					x: 4,
+					y: 6
+				},
+				{
+					x: 3,
+					y: 5
+				},
+				{
+					x: 9,
+					y: 18
+				},
+				{
+					x: 16,
+					y: 20
+				},
+				{
+					x: 25,
+					y: 28
+				},
+			]
+*/
+//			console.log('intervals: ', JSON.stringify(intervals));
+			UI.checkIntervalsUnions(intervals);
+//			console.log('array unione: ', JSON.stringify(UI.intervalsUnion));
+			UI.startGlossaryMark = '<mark class="inGlossary">';
+			UI.endGlossaryMark = '</mark>';
+			markLength = UI.startGlossaryMark.length + UI.endGlossaryMark.length;
+			sourceString = $('.editor .source').html();
+			$.each(UI.intervalsUnion, function(index) {
+				added = markLength * index;
+				sourceString = sourceString.splice(this.x + added, 0, UI.startGlossaryMark);				
+				sourceString = sourceString.splice(this.y + added + UI.startGlossaryMark.length, 0, UI.endGlossaryMark);
+//				console.log(sourceString);
+				$('.editor .source').html(sourceString);
+//				console.log($('.editor .source').html());
+			});		
+		}		
+	},
+	removeGlossaryMarksFormSource: function() {
+		$('.editor mark.inGlossary').each(function() {
+			$(this).replaceWith($(this).html());
+		})
+	},
+
+	checkIntervalsUnions: function(intervals) {
+		console.log('intervals: ', intervals);
+		UI.endedIntervalAnalysis = false;
+		smallest = UI.smallestInterval(intervals);
+//		console.log('smallest: ', smallest);
+		$.each(intervals, function(indice) {
+			if(this === smallest) smallestIndex = indice;
+		});
+		mod = 0;
+		$.each(intervals, function(i) {
+			if(i != smallestIndex )  {
+				if((smallest.x <= this.x)&&(smallest.y >= this.x)) { // this item is to be merged to the smallest
+					mod++;
+					smallest.y = this.y;
+					intervals.splice(i, 1);
+					UI.checkIntervalsUnions(intervals);
+				}
+//				if((i == (intervals.length -1))&&(!mod)) {
+//					console.log('il primo non ha trovato unioni');
+////					UI.checkIntervalsUnions(intervals);
+//					return false;
+//				}
+			}
+		});
+		if(UI.endedIntervalAnalysis) {
+			if(!intervals.length) return false;
+			UI.checkIntervalsUnions(intervals);
+			return false;
+		}
+		if(smallest.x < 1000000) UI.intervalsUnion.push(smallest);
+//			console.log('intervals 1: ', JSON.stringify(intervals));
+		intervals.splice(smallestIndex, 1);
+//			console.log('intervals 2: ', JSON.stringify(intervals));
+			if(!intervals.length) return false;
+			if(!mod) UI.checkIntervalsUnions(intervals);
+		UI.endedIntervalAnalysis = true;
+		return false;
+	},
+
+	smallestInterval: function(ar) {
+		smallest = {
+					x: 1000000, 
+					y: 2000000
+				} 
+		$.each(ar, function(index) {
+			if(this.x < smallest.x) smallest = this;
+		});
+		return smallest;
+	},
+
 	renderGlossary: function(d, seg) {
 		segment = seg;
 		segment_id = segment.attr('id');
@@ -4068,8 +5120,8 @@ $.extend(UI, {
 		$('.sub-editor.glossary .overflow .message', segment).remove();
 		numRes = 0;
 
-		if (Object.size(d.data.matches)) {console.log('ci sono match');
-			$.each(d.data.matches, function(k, v) {
+		if (Object.size(d.data.matches)) {//console.log('ci sono match');
+			$.each(d.data.matches, function(k) {
 				numRes++;
 				$('.sub-editor.glossary .overflow .results', segment).append('<div class="glossary-item"><span>' + k + '</span></div>');
 				$.each(this, function(index) {
@@ -4107,6 +5159,9 @@ $.extend(UI, {
 				password: config.password
 			},
 			context: [UI.currentSegment, next],
+			error: function() {
+				UI.failedConnection(0, 'glossary');
+			},
 			success: function(d) {
 //				d.data.created_tm_key = '76786732';
 				if(d.data.created_tm_key) {
@@ -4402,7 +5457,7 @@ $.extend(UI, {
 		}
 		var p = this.searchParams;
 //        console.log('mode: ' + mode + ' - coso: ' + coso);
-		var targetToo = typeof p.target != 'undefined';
+//		var targetToo = typeof p.target != 'undefined';
 		var containsFunc = (p['match-case']) ? 'contains' : 'containsNC';
 		var ignoreCase = (p['match-case']) ? '' : 'i';
 
@@ -4415,8 +5470,8 @@ $.extend(UI, {
 			console.log('source & target');
 			status = (p.status == 'all') ? '' : '.status-' + p.status;
 			q = (singleSegment) ? '#' + $(singleSegment).attr('id') : "section" + status + ':not(.status-new)';
-			var regSource = new RegExp('(' + htmlEncode(p.source) + ')', "g" + ignoreCase);
-			var regTarget = new RegExp('(' + htmlEncode(p.target) + ')', "g" + ignoreCase);
+			var regSource = new RegExp('(' + htmlEncode(p.source).replace(/\(/g, '\\(').replace(/\)/g, '\\)') + ')', "g" + ignoreCase);
+			var regTarget = new RegExp('(' + htmlEncode(p.target).replace(/\(/g, '\\(').replace(/\)/g, '\\)') + ')', "g" + ignoreCase);
 			txtSrc = p.source;
 			txtTrg = p.target;
 			srcHasTags = (txtSrc.match(/<.*?\>/gi) !== null) ? true : false;
@@ -4436,13 +5491,13 @@ $.extend(UI, {
 			} else {
 				sid = $(seg).attr('id');
 				if (where == 'before') {
-					$('section').each(function(index) {
+					$('section').each(function() {
 						if ($(this).attr('id') < sid) {
 							$(this).addClass('justAdded');
 						}
 					});
 				} else {
-					$('section').each(function(index) {
+					$('section').each(function() {
 						if ($(this).attr('id') > sid) {
 							$(this).addClass('justAdded');
 						}
@@ -4468,20 +5523,21 @@ $.extend(UI, {
 			}
 			hasTags = (txt.match(/<.*?\>/gi) !== null) ? true : false;
 			var regTxt = txt.replace('<', UI.openTagPlaceholder).replace('>', UI.closeTagPlaceholder);
-			var reg = new RegExp('(' + htmlEncode(regTxt) + ')', "g" + ignoreCase);
+			var reg = new RegExp('(' + htmlEncode(regTxt).replace(/\(/g, '\\(').replace(/\)/g, '\\)') + ')', "g" + ignoreCase);
+//			var reg = new RegExp('(' + htmlEncode(regTxt) + ')', "g" + ignoreCase);
 
 			if ((typeof where == 'undefined') || (where == 'no')) {
 				UI.doMarkSearchResults(hasTags, $(q + ":" + containsFunc + "('" + txt + "')"), reg, q, txt, ignoreCase);
 			} else {
 				sid = $(seg).attr('id');
 				if (where == 'before') {
-					$('section').each(function(index) {
+					$('section').each(function() {
 						if ($(this).attr('id') < sid) {
 							$(this).addClass('justAdded');
 						}
 					});
 				} else {
-					$('section').each(function(index) {
+					$('section').each(function() {
 						if ($(this).attr('id') > sid) {
 							$(this).addClass('justAdded');
 						}
@@ -4634,6 +5690,7 @@ $.extend(UI, {
 //		UI.goingToNext = false;
 	},
 	gotoSearchResultAfter: function(options) {
+		console.log('options: ', options);
 		el = options.el;
 		skipCurrent = (options.skipCurrent || false);
 		unmark = (options.unmark || false);
@@ -4680,7 +5737,7 @@ $.extend(UI, {
 			seg = $('section' + wh).has("mark.searchMarker");
 			ss = (this.searchMode == 'source&target')? el + '-editarea' : el;
 			found = false;
-			$.each(seg, function(index) {
+			$.each(seg, function() {
 				if ($(this).attr('id') >= ss) {
 					if (($(this).attr('id') == ss) && (skipCurrent)) {
 					} else {
@@ -4795,10 +5852,8 @@ $.extend(UI, {
 		e.preventDefault();
 		if ($('body').hasClass('filterOpen')) {
 			$('body').removeClass('filterOpen');
-//            $("body").scrollTop($("body").scrollTop()+$('.searchbox').height());
 		} else {
 			$('body').addClass('filterOpen');
-//            $("body").scrollTop($("body").scrollTop()-$('.searchbox').height());
 			$('#search-source').focus();
 		}
 	},
@@ -4923,12 +5978,22 @@ function truncate_filename(n, len) {
 	return filename + '.' + ext;
 }
 
-function insertNodeAtCursor(node) {
+function insertNodeAtCursor(node) {console.log('insertNodeAtCursor');
 	var range, html;
 	if (window.getSelection && window.getSelection().getRangeAt) {
-		if (window.getSelection().type == 'Caret') {
+
+		console.log('window.getSelection().isCollapsed: ', window.getSelection().isCollapsed);
+		console.log('window.getSelection().rangeCount: ', window.getSelection().rangeCount);
+		console.log('window.getSelection(): ', window.getSelection());
+
+//		if ((window.getSelection().isCollapsed)||(UI.isFirefox)) {
+//		if (window.getSelection().type == 'Caret') { console.log('a');
+		if ((window.getSelection().type == 'Caret')||(UI.isFirefox)) {
 			range = window.getSelection().getRangeAt(0);
+			console.log('range: ', range);
+			console.log('1: ', UI.editarea.html());
 			range.insertNode(node);
+			console.log('2: ', UI.editarea.html());
 		} else {
 		}
 
@@ -4995,10 +6060,10 @@ function setCursorPosition(el, pos) {
 	range.collapse(true);
 	sel.removeAllRanges();
 	sel.addRange(range);
-	el.focus();	
+	if(typeof el[0] != 'undefined') el.focus();	
 }
 
-function removeSelectedText(editarea) {
+function removeSelectedText() {
 	if (window.getSelection || document.getSelection) {
 		var oSelection = (window.getSelection ? window : document).getSelection();
 		if (oSelection.type == 'Caret') {
@@ -5094,7 +6159,7 @@ function rawxliff2rawview(segment) { // currently unused
 	return segment;
 }
 
-function saveSelection(pos) {//console.log(pos);
+function saveSelection() {
 //	var editarea = (typeof editarea == 'undefined') ? UI.editarea : el;
 	var editarea = UI.editarea;
 	if (UI.savedSel) {
@@ -5105,7 +6170,6 @@ function saveSelection(pos) {//console.log(pos);
 	editarea.html(editarea.html().replace(UI.cursorPlaceholder, ''));
 
 	UI.savedSelActiveElement = document.activeElement;
-//	if(pos != 'noMove') UI.movePHOutOfTags(pos);
 }
 
 function restoreSelection() {
@@ -5156,7 +6220,7 @@ function getSelectionHtml() {
 
 function setBrowserHistoryBehavior() {
 
-	window.onpopstate = function(event) {
+	window.onpopstate = function() {
 		segmentId = location.hash.substr(1);
 		if (UI.segmentIsLoaded(segmentId)) {
 			$(".editarea", $('#segment-' + segmentId)).click();
@@ -5168,6 +6232,28 @@ function setBrowserHistoryBehavior() {
 
 }
 
+function goodbye(e) {
+	if ($('#downloadProject').hasClass('disabled')) {
+		var dont_confirm_leave = 0; //set dont_confirm_leave to 1 when you want the user to be able to leave withou confirmation
+		var leave_message = 'You have a pending download. Are you sure you want to quit?';
+		if(dont_confirm_leave!==1) {
+			if(!e) e = window.event;
+			//e.cancelBubble is supported by IE - this will kill the bubbling process.
+			e.cancelBubble = true;
+			e.returnValue = leave_message;
+			//e.stopPropagation works in Firefox.
+			if (e.stopPropagation) 
+			{
+				e.stopPropagation();
+				e.preventDefault();
+			}
+
+			//return works for Chrome and Safari
+			return leave_message;
+		}
+	}
+}   
+
 $.fn.isOnScreen = function() {
 
 	var win = $(window);
@@ -5176,6 +6262,8 @@ $.fn.isOnScreen = function() {
 		top: win.scrollTop(),
 		left: win.scrollLeft()
 	};
+	console.log('viewport: ', viewport);
+
 	viewport.right = viewport.left + win.width();
 	viewport.bottom = viewport.top + win.height();
 
@@ -5188,6 +6276,29 @@ $.fn.isOnScreen = function() {
 
 };
 
+$.fn.countdown = function (callback, duration, message) {
+    // If no message is provided, we use an empty string
+    message = message || "";
+    // Get reference to container, and set initial content
+    var container = $(this[0]).html(duration + message);
+    // Get reference to the interval doing the countdown
+    var countdown = setInterval(function () {
+        // If seconds remain
+        if (--duration) {
+            // Update our container's message
+            container.html(duration + message);
+        // Otherwise
+        } else {
+            // Clear the countdown interval
+            clearInterval(countdown);
+            // And fire the callback passing our container as `this`
+            callback.call(container);   
+        }
+    // Run interval every 1000ms (1 second)
+    }, 1000);
+    
+};
+
 Object.size = function(obj) {
     var size = 0, key;
     for (key in obj) {
@@ -5195,4 +6306,121 @@ Object.size = function(obj) {
     }
     return size;
 };
+
+String.prototype.splice = function( idx, rem, s ) {
+    return (this.slice(0,idx) + s + this.slice(idx + Math.abs(rem)));
+};
+
+function lev(s1, s2) {
+  //       discuss at: http://phpjs.org/functions/levenshtein/
+  //      original by: Carlos R. L. Rodrigues (http://www.jsfromhell.com)
+  //      bugfixed by: Onno Marsman
+  //       revised by: Andrea Giammarchi (http://webreflection.blogspot.com)
+  // reimplemented by: Brett Zamir (http://brett-zamir.me)
+  // reimplemented by: Alexander M Beedie
+  //        example 1: levenshtein('Kevin van Zonneveld', 'Kevin van Sommeveld');
+  //        returns 1: 3
+
+  if (s1 == s2) {
+    return 0;
+  }
+
+  var s1_len = s1.length;
+  var s2_len = s2.length;
+  if (s1_len === 0) {
+    return s2_len;
+  }
+  if (s2_len === 0) {
+    return s1_len;
+  }
+
+  // BEGIN STATIC
+  var split = false;
+  try {
+    split = !('0')[0];
+  } catch (e) {
+    split = true; // Earlier IE may not support access by string index
+  }
+  // END STATIC
+  if (split) {
+    s1 = s1.split('');
+    s2 = s2.split('');
+  }
+
+  var v0 = new Array(s1_len + 1);
+  var v1 = new Array(s1_len + 1);
+
+  var s1_idx = 0,
+    s2_idx = 0,
+    cost = 0;
+  for (s1_idx = 0; s1_idx < s1_len + 1; s1_idx++) {
+    v0[s1_idx] = s1_idx;
+  }
+  var char_s1 = '',
+    char_s2 = '';
+  for (s2_idx = 1; s2_idx <= s2_len; s2_idx++) {
+    v1[0] = s2_idx;
+    char_s2 = s2[s2_idx - 1];
+
+    for (s1_idx = 0; s1_idx < s1_len; s1_idx++) {
+      char_s1 = s1[s1_idx];
+      cost = (char_s1 == char_s2) ? 0 : 1;
+      var m_min = v0[s1_idx + 1] + 1;
+      var b = v1[s1_idx] + 1;
+      var c = v0[s1_idx] + cost;
+      if (b < m_min) {
+        m_min = b;
+      }
+      if (c < m_min) {
+        m_min = c;
+      }
+      v1[s1_idx + 1] = m_min;
+    }
+    var v_tmp = v0;
+    v0 = v1;
+    v1 = v_tmp;
+  }
+  return v0[s1_len];
+}
+
+/*
+	Component: ui.customization
+ */
+$.extend(UI, {
+	loadCustomization: function() {
+		if ($.cookie('user_customization')) {
+			this.custom = $.parseJSON($.cookie('user_customization'));
+		} else {
+			this.custom = {
+				"extended_concordance": false
+			}
+			this.saveCustomization();
+		}
+	},
+	saveCustomization: function() {
+		$.cookie('user_customization', JSON.stringify(this.custom), { expires: 3650 });
+	},
+	setShortcuts: function() {
+		if($('#settings-shortcuts .list').length) return;
+		$('#settings-shortcuts #default-shortcuts').before('<table class="list"></table>');
+		$.each(this.shortcuts, function() {
+			$('#settings-shortcuts .list').append('<tr><td class="label">' + this.label + '</td><td class="combination"><span contenteditable="true" class="keystroke">' + ((UI.isMac) ? ((typeof this.keystrokes.mac == 'undefined')? UI.viewShortcutSymbols(this.keystrokes.standard) : UI.viewShortcutSymbols(this.keystrokes.mac)) : UI.viewShortcutSymbols(this.keystrokes.standard)) + '</span></td></tr>');
+		});
+	},
+	viewShortcutSymbols: function(txt) {
+		txt = txt.replace(/meta/gi, '&#8984').replace(/return/gi, '&#8629').replace(/alt/gi, '&#8997').replace(/shift/gi, '&#8679').replace(/up/gi, '&#8593').replace(/down/gi, '&#8595').replace(/left/gi, '&#8592').replace(/right/gi, '&#8594');
+		return txt;
+	},
+	writeNewShortcut: function(c, s, k) {
+		$(k).html(s.html().substring(0, s.html().length - 1)).removeClass('changing').addClass('modified').blur();
+		$(s).remove();
+		$('.msg', c).remove();
+		$('#settings-shortcuts.modifying').removeClass('modifying');
+		$('.popup-settings .submenu li[data-tab="settings-shortcuts"]').addClass('modified');
+		$('.popup-settings').addClass('modified');
+	}
+});
+
+
+
 

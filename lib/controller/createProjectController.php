@@ -25,7 +25,6 @@ class createProjectController extends ajaxController {
 
     public function __construct() {
 
-        $this->disableSessions();
         parent::__construct();
 
         $filterArgs = array(
@@ -175,7 +174,7 @@ class createProjectController extends ajaxController {
                 'segments'           => array(), //array of files_id => segmentsArray()
                 'translations'       => array(), //one translation for every file because translations are files related
                 'query_translations' => array(),
-                'status'             => 'NOT_READY_FOR_ANALYSIS',
+                'status'             => Constants_ProjectStatus::STATUS_NOT_READY_FOR_ANALYSIS,
                 'job_to_split'       => null,
                 'job_to_split_pass'  => null,
                 'split_result'       => null,
@@ -187,7 +186,9 @@ class createProjectController extends ajaxController {
 
         $this->result = $projectStructure['result'];
 
-        setcookie( "upload_session", "", time() - 10000 );
+        if( !empty( $this->projectStructure['result']['errors'] ) ){
+            setcookie( "upload_session", "", time() - 10000 );
+        }
 
     }
 

@@ -50,10 +50,10 @@ class setTranslationController extends ajaxController {
 	public function doAction() {
 
         switch( $this->status ) {
-            case 'TRANSLATED':
-            case 'APPROVED':
-            case 'REJECTED':
-            case 'DRAFT':
+            case Constants_TranslationStatus::STATUS_TRANSLATED:
+            case Constants_TranslationStatus::STATUS_APPROVED:
+            case Constants_TranslationStatus::STATUS_REJECTED:
+            case Constants_TranslationStatus::STATUS_DRAFT:
                 break;
             default:
                 //NO debug and NO-actions for un-mapped status
@@ -77,17 +77,34 @@ class setTranslationController extends ajaxController {
 		} else {
 
             //get Job Infos, we need only a row of jobs ( split )
-            $job_data = getJobData( (int) $this->id_job, $this->password );
+            $job_data = getJobData( (int)$this->id_job, $this->password );
+            if ( empty( $job_data ) ) {
+                $msg = "Error : empty job data \n\n " . var_export( $_POST, true ) . "\n";
+                Log::doLog( $msg );
+                Utils::sendErrMailReport( $msg );
+            }
+
+            $db = Database::obtain();
+            $err   = $db->get_error();
+            $errno = $err[ 'error_code' ];
+
+            if ( $errno != 0 ) {
+                $msg = "Error : empty job data \n\n " .  var_export($_POST ,true )."\n";
+                Log::doLog( $msg );
+                Utils::sendErrMailReport( $msg );
+                $this->result['error'][] = array("code" => -101, "message" => "database error");
+		        return -1;
+            }
 
             //add check for job status archived.
-            if( strtolower( $job_data['status'] ) == 'archived' ){
-                $this->result['error'][] = array("code" => -3, "message" => "job archived");
+            if ( strtolower( $job_data[ 'status' ] ) == 'archived' ) {
+                $this->result[ 'error' ][ ] = array( "code" => -3, "message" => "job archived" );
             }
 
             $pCheck = new AjaxPasswordCheck();
             //check for Password correctness
-            if( empty( $job_data ) || !$pCheck->grantJobAccessByJobData( $job_data, $this->password, $this->id_segment ) ){
-                $this->result['error'][] = array("code" => -10, "message" => "wrong password");
+            if ( empty( $job_data ) || !$pCheck->grantJobAccessByJobData( $job_data, $this->password, $this->id_segment ) ) {
+                $this->result[ 'error' ][ ] = array( "code" => -10, "message" => "wrong password" );
             }
 
         }
@@ -98,10 +115,6 @@ class setTranslationController extends ajaxController {
 
 		if (empty($this->time_to_edit)) {
 			$this->time_to_edit = 0;
-		}
-
-		if (empty($this->status)) {
-			$this->status = 'DRAFT';
 		}
 
 		if ( is_null($this->translation) || $this->translation === '' ) {
@@ -165,24 +178,149 @@ class setTranslationController extends ajaxController {
 - firstCheckErrors  : " . var_export( $check->getErrors(), true ) . "
 - postCheckErrors   : " . ( isset($postCheck) ? var_export( $postCheck->getErrors(), true ) : 'null' );
 
-        Log::doLog( $msg . "\n" );
+        //Log::doLog( $msg . "\n" );
 
 
-        $res = CatUtils::addSegmentTranslation($this->id_segment, $this->id_job, $this->status, $this->time_to_edit, $translation, $err_json,$this->chosen_suggestion_index, $check->thereAreErrors() );
+        /*
+         * begin stats counter
+         */
+        $old_translation = getCurrentTranslation( $this->id_job, $this->id_segment );
+
+        //if volume analysis is not enables and no translation rows exists
+        //create the row
+        if( !INIT::$VOLUME_ANALYSIS_ENABLED && empty( $old_translation['status'] ) ){
+
+            $_Translation                            = array();
+            $_Translation[ 'id_segment' ]            = (int)$this->id_segment;
+            $_Translation[ 'id_job' ]                = (int)$this->id_job;
+            $_Translation[ 'status' ]                = Constants_TranslationStatus::STATUS_NEW;
+            $_Translation[ 'segment_hash' ]          = $segment['segment_hash'];
+            $_Translation[ 'translation' ]           = $segment['segment'];
+            $_Translation[ 'standard_word_count' ]   = $segment['raw_word_count'];
+            $_Translation[ 'serialized_errors_list' ] = '';
+            $_Translation[ 'suggestion_position' ]   = 0;
+            $_Translation[ 'warning' ]               = false;
+            $_Translation[ 'translation_date' ]      = date( "Y-m-d H:i:s" );
+            addTranslation( $_Translation );
+
+            /*
+             * begin stats counter
+             */
+            $old_translation = getCurrentTranslation( $this->id_job, $this->id_segment );
+
+        }
+
+        $old_wStruct = new WordCount_Struct();
+        $old_wStruct->setIdJob( $this->id_job );
+        $old_wStruct->setJobPassword( $this->password );
+        $old_wStruct->setNewWords( $job_data['new_words'] );
+        $old_wStruct->setDraftWords( $job_data['draft_words'] );
+        $old_wStruct->setTranslatedWords( $job_data['translated_words'] );
+        $old_wStruct->setApprovedWords( $job_data['approved_words'] );
+        $old_wStruct->setRejectedWords( $job_data['rejected_words'] );
+
+        $old_wStruct->setIdSegment( $this->id_segment );
+
+        //redundant, this is made into WordCount_Counter::updateDB
+        $old_wStruct->setOldStatus( $old_translation['status'] );
+        $old_wStruct->setNewStatus( $this->status );
+
+        //redundant because the update is made only where status = old status
+        if( $this->status != $old_translation['status'] ){
+
+            //cambiato status, sposta i conteggi
+            $old_count  = ( !empty( $old_translation['eq_word_count'] ) ? $old_translation['eq_word_count'] : $segment['raw_word_count'] );
+
+            //if there is not a row in segment_translations because volume analysis is disabled
+            //search for a just created row
+            $old_status = ( !empty( $old_translation['status'] ) ? $old_translation['status'] : Constants_TranslationStatus::STATUS_NEW );
+
+            $counter = new WordCount_Counter( $old_wStruct );
+            $counter->setOldStatus( $old_status );
+            $counter->setNewStatus( $this->status );
+            $newValues = $counter->getUpdatedValues( $old_count );
+
+            /**
+             * WARNING: THIS CHANGE THE STATUS OF SEGMENT_TRANSLATIONS ALSO
+             *
+             * Needed because of duplicated setTranslationsController calls for the same segment
+             *   ( The second call fails for status in where condition )
+             *
+             */
+            $newTotals = $counter->updateDB( $newValues );
+
+        } else {
+            $newTotals = $old_wStruct;
+        }
+
+        $_Translation                            = array();
+        $_Translation[ 'id_segment' ]            = $this->id_segment;
+        $_Translation[ 'id_job' ]                = $this->id_job;
+        $_Translation[ 'status' ]                = $this->status;
+        $_Translation[ 'time_to_edit' ]          = $this->time_to_edit;
+        $_Translation[ 'translation' ]           = preg_replace( '/[ \t\n\r\0\x0A\xA0]+$/u', '', $translation );
+        $_Translation[ 'serialized_errors_list' ] = $err_json;
+        $_Translation[ 'suggestion_position' ]   = $this->chosen_suggestion_index;
+        $_Translation[ 'warning' ]               = $check->thereAreErrors();
+        $_Translation[ 'translation_date' ]      = date( "Y-m-d H:i:s" );
+
+        /**
+         * when the status of the translation changes, the auto propagation flag
+         * must be removed
+         */
+        if( $_Translation[ 'translation' ] != $old_translation['translation'] || $this->status == Constants_TranslationStatus::STATUS_TRANSLATED || $this->status == Constants_TranslationStatus::STATUS_APPROVED ){
+            $_Translation[ 'autopropagated_from' ] = 'NULL';
+        }
+
+        $res = CatUtils::addSegmentTranslation( $_Translation );
 
         if (!empty($res['error'])) {
-			$this->result['error'] = $res['error'];
+            $this->result['error'] = $res['error'];
 
             $msg = "\n\n Error addSegmentTranslation \n\n Database Error \n\n " . var_export( array_merge( $this->result, $_POST ), true );
             Log::doLog( $msg );
             Utils::sendErrMailReport( $msg );
 
-			return -1;
-		}
+            return -1;
+        }
 
-		$job_stats = CatUtils::getStatsForJob($this->id_job, null, $this->password);
-		//$file_stats = CatUtils::getStatsForFile($this->id_first_file); //Removed .. HEAVY query, client don't need these infos at moment
-		$file_stats = array();
+        //propagate translations
+        $TPropagation                             = array();
+        $TPropagation[ 'id_job' ]                 = $this->id_job;
+        $TPropagation[ 'status' ]                 = Constants_TranslationStatus::STATUS_DRAFT;
+        $TPropagation[ 'translation' ]            = $translation;
+        $TPropagation[ 'autopropagated_from' ]    = $this->id_segment;
+        $TPropagation[ 'serialized_errors_list' ] = $err_json;
+        $TPropagation[ 'warning' ]                = $check->thereAreErrors();
+        $TPropagation[ 'translation_date' ]       = date( "Y-m-d H:i:s" );
+        $TPropagation[ 'segment_hash' ]           = $old_translation[ 'segment_hash' ];
+
+        if( $this->status == Constants_TranslationStatus::STATUS_TRANSLATED ){
+
+            try {
+                propagateTranslation( $TPropagation, $job_data );
+            } catch ( Exception $e ){
+                $msg = $e->getMessage() . "\n\n" . $e->getTraceAsString();
+                Log::doLog( $msg );
+                Utils::sendErrMailReport( $msg );
+            }
+
+        }
+
+//		$job_stats = CatUtils::getStatsForJob($this->id_job, null, $this->password);
+		$job_stats = CatUtils::getFastStatsForJob( $newTotals );
+        $project = getProject( $job_data['id_project'] );
+        $project = array_pop( $project );
+
+        $job_stats['ANALYSIS_COMPLETE'] = (
+
+                $project['status_analysis'] == Constants_ProjectStatus::STATUS_DONE || $project['status_analysis'] == Constants_ProjectStatus::STATUS_NOT_TO_ANALYZE
+
+                ? true : false );
+
+		//$file_stats = CatUtils::getStatsForFile($this->id_first_file); //Removed .. HEAVY query, client don't need these info at moment
+
+        $file_stats = array();
 
 		$is_completed = ($job_stats['TRANSLATED_PERC'] == '100') ? 1 : 0;
 

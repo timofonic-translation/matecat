@@ -22,7 +22,7 @@ class CatUtils {
     const crPlaceholderRegex   = '/\#\#\$_0D\$\#\#/g';
     const crlfPlaceholderRegex = '/\#\#\$_0D0A\$\#\#/g';
 
-    public static $cjk = array( 'zh-TW' => 1.8, 'zh-CN' => 1.8, 'ja-JP' => 2.5, 'ko-KR' => 2.5, 'km-KH' => 2.5 );
+    public static $cjk = array( 'zh' => 1.8, 'ja' => 2.5, 'ko' => 2.5, 'km' => 5 );
 
     //following functions are useful for manage the consistency of non braking spaces
     // chars coming, expecially,from MS Word
@@ -195,6 +195,10 @@ class CatUtils {
             html_entity_decode($segment, ENT_NOQUOTES, 'UTF-8'),
             ENT_NOQUOTES, 'UTF-8', false
         );
+
+        //encode all not valid XML entities
+        $segment = preg_replace('/&(?!lt;|gt;|amp;|quot;|apos;|#[x]{0,1}[0-9A-F]{1,4};)/', '&amp;' , $segment );
+
         $segment = self::restore_xliff_tags($segment);
         return $segment;
     }
@@ -324,11 +328,14 @@ class CatUtils {
 //            $tra_for_diff = html_entity_decode($tra_for_diff, ENT_NOQUOTES, 'UTF-8');
 
             //$ter          = MyMemory::diff_tercpp( $sug_for_diff, $tra_for_diff, $lang );
-		$ter=array();
-            $seg[ 'ter' ] = $ter[ 1 ] * 100;
+
+            //with this patch we have warnings when accessing indexes
+            $ter=array();
+
+            $seg[ 'ter' ] = @$ter[ 1 ] * 100;
             $stat_ter[ ]  = $seg[ 'ter' ] * $seg[ 'rwc' ];
-            $seg[ 'ter' ] = round( $ter[ 1 ] * 100 ) . "%";
-            $diff_ter     = $ter[ 0 ];
+            $seg[ 'ter' ] = round( @$ter[ 1 ] * 100 ) . "%";
+            $diff_ter     = @$ter[ 0 ];
 
             if ( $seg[ 'sug' ] <> $seg[ 'translation' ] ) {
 
@@ -408,24 +415,17 @@ class CatUtils {
         return array($data, $stats);
     }
 
-    public static function addSegmentTranslation($id_segment, $id_job, $status, $time_to_edit, $translation, $errors, $chosen_suggestion_index, $warning = 0) {
+    public static function addSegmentTranslation( array $_Translation ) {
 
+        $updateRes = addTranslation( $_Translation );
 
-        $insertRes = setTranslationInsert($id_segment, $id_job, $status, $time_to_edit, $translation, $errors, $chosen_suggestion_index, $warning);
-        if ($insertRes < 0 and $insertRes != -1062) {
-            $result['error'][] = array("code" => -4, "message" => "error occurred during the storing (INSERT) of the translation for the segment $id_segment - Error: $insertRes");
+        if ($updateRes < 0) {
+            $result['error'][] = array("code" => -5, "message" => "error occurred during the storing (UPDATE) of the translation for the segment $id_segment - Error: $updateRes");
             return $result;
         }
-        if ($insertRes == -1062) {
 
-            $updateRes = setTranslationUpdate($id_segment, $id_job, $status, $time_to_edit, $translation, $errors, $chosen_suggestion_index, $warning);
-
-            if ($updateRes < 0) {
-                $result['error'][] = array("code" => -5, "message" => "error occurred during the storing (UPDATE) of the translation for the segment $id_segment - Error: $updateRes");
-                return $result;
-            }
-        }
         return 0;
+
     }
 
     public static function addTranslationSuggestion($id_segment, $id_job, $suggestions_json_array = "", $suggestion = "", $suggestion_match = "", $suggestion_source = "", $match_type = "", $eq_words = 0, $standard_words = 0, $translation = "", $tm_status_analysis = "UNDONE", $warning = 0, $err_json = '', $mt_qe = 0 ) {
@@ -576,7 +576,6 @@ class CatUtils {
         $job_stats[ 'PROGRESS_FORMATTED' ]   = number_format( $job_stats[ 'TRANSLATED' ] + $job_stats[ 'APPROVED' ], 0, ".", "," );
         $job_stats[ 'APPROVED_FORMATTED' ]   = number_format( $job_stats[ 'APPROVED' ], 0, ".", "," );
         $job_stats[ 'REJECTED_FORMATTED' ]   = number_format( $job_stats[ 'REJECTED' ], 0, ".", "," );
-        $job_stats[ 'TODO_FORMATTED' ]       = number_format( $job_stats[ 'DRAFT' ] + $job_stats[ 'REJECTED' ], 0, ".", "," );
         $job_stats[ 'DRAFT_FORMATTED' ]      = number_format( $job_stats[ 'DRAFT' ], 0, ".", "," );
         $job_stats[ 'TRANSLATED_FORMATTED' ] = number_format( $job_stats[ 'TRANSLATED' ], 0, ".", "," );
 
@@ -603,6 +602,13 @@ class CatUtils {
         $job_stats[ 'REJECTED_PERC_FORMATTED' ]   = round( $job_stats[ 'REJECTED_PERC' ], $significantDigits );
         $job_stats[ 'PROGRESS_PERC_FORMATTED' ]   = round( $job_stats[ 'PROGRESS_PERC' ], $significantDigits );
 
+        $todo = $job_stats[ 'DRAFT' ] + $job_stats[ 'REJECTED' ];
+        if( $todo < 1 && $todo > 0 ){
+            $job_stats[ 'TODO_FORMATTED' ] = 1;
+        } else {
+            $job_stats[ 'TODO_FORMATTED' ] = number_format( $job_stats[ 'DRAFT' ] + $job_stats[ 'REJECTED' ], 0, ".", "," );
+        }
+
         $t = 'approved';
         if ($job_stats['TRANSLATED_FORMATTED'] > 0)
             $t = "translated";
@@ -610,6 +616,12 @@ class CatUtils {
             $t = "draft";
         if ($job_stats['REJECTED_FORMATTED'] > 0)
             $t = "draft";
+        if( $job_stats['TRANSLATED_FORMATTED'] == 0 &&
+                $job_stats['DRAFT_FORMATTED'] == 0 &&
+                $job_stats['REJECTED_FORMATTED'] == 0 &&
+                $job_stats['APPROVED_FORMATTED'] == 0 ){
+            $t = 'draft';
+        }
         $job_stats['DOWNLOAD_STATUS'] = $t;
 
         return $job_stats;
@@ -649,6 +661,24 @@ class CatUtils {
         
     }
 
+    public static function getFastStatsForJob( WordCount_Struct $wCount ){
+
+        $job_stats = array();
+        $job_stats[ 'id' ]         = $wCount->getIdJob();
+//        $job_stats[ 'NEW' ]        = $wCount->getNewWords();
+        $job_stats[ 'DRAFT' ]      = $wCount->getNewWords() + $wCount->getDraftWords();
+        $job_stats[ 'TRANSLATED' ] = $wCount->getTranslatedWords();
+        $job_stats[ 'APPROVED' ]   = $wCount->getApprovedWords();
+        $job_stats[ 'REJECTED' ]   = $wCount->getRejectedWords();
+
+        //avoid division by zero warning
+        $total = $wCount->getTotal();
+        $job_stats[ 'TOTAL' ]      = ( $total == 0 ? 1 : $total );
+        $job_stats = self::_getStatsForJob($job_stats, true); //true set estimation check if present
+        return self::_performanceEstimationTime($job_stats);
+
+    }
+
     public static function getStatsForFile($fid) {
 
 
@@ -670,6 +700,12 @@ class CatUtils {
         if ( $app == "" ) {
             return '';
         }
+		
+		if(strpos($source_lang,'-')!==FALSE){
+			$tmp_lang=explode('-',$source_lang);
+			$source_lang=$tmp_lang[0];
+			unset($tmp_lang);
+		}
 
         $string = preg_replace( "#<.*?" . ">#si", "", $string );
         $string = preg_replace( "#<\/.*?" . ">#si", "", $string );
@@ -721,6 +757,13 @@ class CatUtils {
 
     //CONTA LE PAROLE IN UNA STRINGA
     public static function segment_raw_wordcount( $string, $source_lang = 'en-US' ) {
+
+		if(strpos($source_lang,'-')!==FALSE){
+			$tmp_lang=explode('-',$source_lang);
+			$source_lang=$tmp_lang[0];
+			unset($tmp_lang);
+		}
+
 
         $string = self::clean_raw_string4fast_word_count( $string, $source_lang );
 

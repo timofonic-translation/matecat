@@ -3,8 +3,12 @@ UI = null;
 UI = {
 	init: function() {
 		this.stopPolling = false;
+        this.pollingTime = 1000;
+        this.segmentsThreshold = 50000;
 		this.noProgressTail = 0;
 		this.lastProgressSegments = 0;
+
+        this.quoteResponse = [];
 
 		this.previousQueueSize = 0;
 
@@ -24,14 +28,8 @@ UI = {
 
 		//        fit_text_to_container($("#pname"));
 
-		$(".more").click(function(e) {
-			e.preventDefault();
-			$(".content").toggle();
-		});
-		$(".more-table").click(function(e) {
-			e.preventDefault();
-			$(".content-table").toggle();
-		});
+
+
 		/*        
 		 $(".part1").click(function(e){
 		 e.preventDefault();
@@ -147,6 +145,8 @@ UI = {
 		}).on('click', '.popup-split #exec-split-confirm', function(e) {
 			e.preventDefault();
 			UI.confirmSplit();
+		}).on('click', '.out-link', function(e) {
+			this.select();
 		}).on('click', '.mergebtn:not(.disabled)', function(e) {
 			e.preventDefault();
 			APP.confirm({
@@ -242,6 +242,7 @@ UI = {
 			$('.popup-split').removeClass('error-number');
 		}
 	},
+
 	checkStatus: function(status) {
 		if (config.status == status) {
 			$('.loadingbar').addClass('open');
@@ -433,10 +434,15 @@ UI = {
 			success: function(d) {
 				if (d.data) {
 					var s = d.data.summary;
-					console.log(s);
 					if ((s.STATUS == 'NEW') || (s.STATUS == '') || s.IN_QUEUE_BEFORE > 0) {
 						$('.loadingbar').addClass('open');
-						if (s.IN_QUEUE_BEFORE > 0) {
+
+                        if( config.daemon_warning ){
+                            UI.displayError('The analysis seems not to be running. Contact <a href="mailto:antonio@translated.net">support@matecat.com</a>');
+                            $('#standard-equivalent-words .word-number' ).removeClass('loading').text( $('#raw-words .word-number' ).text() );
+                            $('#matecat-equivalent-words .word-number' ).removeClass('loading').text( $('#raw-words .word-number' ).text() );
+                            return false;
+                        } else if (s.IN_QUEUE_BEFORE > 0) {
 							//increasing number of segments ( fast analysis on another project )
 							if ( UI.previousQueueSize <= s.IN_QUEUE_BEFORE ) {
                                 $('#shortloading' ).show().html('<p class="label">There are other project in queue. Please wait...</p>');
@@ -465,7 +471,7 @@ UI = {
 							UI.noProgressTail = 0;
 						} else {
 							UI.noProgressTail++;
-							if (UI.noProgressTail > 9) {
+                            if (UI.noProgressTail > 9) {
 								//$('#longloading .meter').hide();
 								//$('#longloading p').html('The analyzer seems to have a problem. Contact <a href="mailto:antonio@translated.net">antonio@translated.net</a> or try refreshing the page.');
 								UI.displayError('The analyzer seems to have a problem. Contact <a href="mailto:antonio@translated.net">antonio@translated.net</a> or try refreshing the page.');
@@ -595,6 +601,12 @@ UI = {
 
 								context = $(global_context).find('#file_' + job_id + '_' + jobpassword + '_' + id_file);
 
+                                var s_payable = $('.stat_payable strong', context );
+                                var s_payable_txt = s_payable.text();
+                                s_payable.text( file_details.TOTAL_PAYABLE[1] );
+                                if ( s_payable_txt != file_details.TOTAL_PAYABLE[1] )
+                                    s_payable.effect( "highlight", {}, 1000 );
+
 								var s_new = $('.stat_new', context);
 								var s_new_txt = s_new.text();
 								s_new.text(file_details.NEW[1]);
@@ -646,9 +658,13 @@ UI = {
 
 					if (d.data.summary.STATUS != 'DONE') {
 						$('.dosplit').addClass('disabled');
+                        if( d.data.summary.TOTAL_SEGMENTS > UI.segmentsThreshold  ){
+                            UI.pollingTime = parseInt( d.data.summary.TOTAL_SEGMENTS / 20 ) ;
+                            console.log( 'Polling time: ' + UI.pollingTime );
+                        }
 						setTimeout(function() {
 							UI.pollData();
-						}, 1000);
+						}, UI.pollingTime );
 					} else {
 						$('.dosplit').removeClass('disabled');
 						$('#longloading .approved-bar').css('width', '100%');
@@ -743,4 +759,5 @@ $(document).ready(function() {
 		gopopup($(e.target).data('oauth'));
 	});
 	UI.init();
+	UI.outsourceInit();
 });

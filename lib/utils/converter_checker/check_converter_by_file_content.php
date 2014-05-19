@@ -30,6 +30,8 @@ class ConvertersMonitor {
 
     public $converterFactory;
 
+    const selectAllLikeMatecat               = "SELECT SUM( status_active ) as in_pool FROM converters WHERE status_offline = 0";
+    const selectAllNotOffline                = "SELECT * FROM converters WHERE status_offline = 0";
     const hideRow                            = "UPDATE converters SET status_active = 0 WHERE ip_converter = '%s' ";
     const insertLogRow                       = "INSERT INTO converters_log VALUES ( NULL , %u, CURRENT_TIMESTAMP, %u )";
     const selectLastTwoLogs_beforeUpdate     = "SELECT test_passed FROM converters_log
@@ -69,11 +71,13 @@ class ConvertersMonitor {
 
         //init params
         $this->path      = $this->ROOT . '/lib/utils/converter_checker';
-        $queryServerList = "SELECT * FROM converters WHERE status_offline = 0";
-        $resultSet       = $this->db->fetch_array( $queryServerList );
+        $resultSet       = $this->db->fetch_array( self::selectAllNotOffline );
 
         if( empty($resultSet) ){
-            self::_prettyEcho( "**** WARNING ... No converter Online Found. ****" );
+            self::_prettyEcho( "------------------------------------" );
+            self::_prettyEcho( "************* WARNING **************" );
+            self::_prettyEcho( "------------------------------------" );
+            $this->alertForEmptyPool();
             die(1);
         }
 
@@ -158,13 +162,50 @@ class ConvertersMonitor {
                 self::_prettyEcho( "OK" );
             }
 
-            self::_prettyEcho( "---------------------------------" );
+            self::_prettyEcho( "------------------------------------" );
 
         }
 
+        $this->alertForEmptyPool();
+
         $this->performRebooting();
 
-        self::_prettyEcho( "---------------------------------" );
+        self::_prettyEcho( "------------------------------------" );
+
+    }
+
+    /**
+     * Check for an Empty pool and send Alert Notification
+     *
+     */
+    public function alertForEmptyPool(){
+
+        $result = $this->db->query_first( self::selectAllLikeMatecat );
+        $count = array_pop( $result );
+
+        if( $count == 0 ){
+
+            self::_prettyEcho( "************************************" );
+            self::_prettyEcho( "********* CRITICAL STATUS **********" );
+            self::_prettyEcho( "************************************" );
+            self::_prettyEcho( "**** NO ACTIVE CONVERTERS FOUND ****" );
+            self::_prettyEcho( "************************************" );
+            self::_prettyEcho( "------------------------------------" );
+
+            $msg = "<pre>\n\n ************************************"
+                 . "\n ********* CRITICAL STATUS **********"
+                 . "\n ************************************"
+                  . "\n **** NO ACTIVE CONVERTERS FOUND ****"
+                 . "\n ************************************"
+                 . "\n</pre>";
+
+            Utils::sendErrMailReport( $msg );
+
+        } else {
+            self::_prettyEcho( "ACTIVES: " . $count );
+            self::_prettyEcho( "------------------------------------" );
+        }
+
 
     }
 
@@ -177,7 +218,7 @@ class ConvertersMonitor {
         //to be safe, we could send reboot command twice
         $this->setForReboot = array_unique( $this->setForReboot );
 
-        self::_prettyEcho( "**** Found " . count( $this->setForReboot ) . " to be rebooted. ****" );
+        self::_prettyEcho( "****** Found " . count( $this->setForReboot ) . " to be rebooted ******" );
 
         foreach ( $this->setForReboot as $ip_to_reboot ) {
 
@@ -218,7 +259,7 @@ class ConvertersMonitor {
         $ret = array();
         switch ( $command ) {
             case 'start':
-                $cmd[ ] = "screen -d -m VBoxHeadless --startvm '" . $this->host_machine_map[ $ip_converter ][ 'instance_name' ] . "'";
+                $cmd[ ] = "screen -d -m -S " . $this->host_machine_map[ $ip_converter ][ 'instance_name' ] . " VBoxHeadless --startvm '" . $this->host_machine_map[ $ip_converter ][ 'instance_name' ] . "'";
                 break;
             case 'stop':
                 $cmd[ ] = " VBoxManage controlvm '" . $this->host_machine_map[ $ip_converter ][ 'instance_name' ] . "' poweroff";
@@ -226,7 +267,7 @@ class ConvertersMonitor {
             case 'restart':
             default:
                 $cmd[ ] = " VBoxManage controlvm '" . $this->host_machine_map[ $ip_converter ][ 'instance_name' ] . "' poweroff";
-                $cmd[ ] = "screen -d -m VBoxHeadless --startvm '" . $this->host_machine_map[ $ip_converter ][ 'instance_name' ] . "'";
+                $cmd[ ] = "screen -d -m -S " . $this->host_machine_map[ $ip_converter ][ 'instance_name' ] . " VBoxHeadless --startvm '" . $this->host_machine_map[ $ip_converter ][ 'instance_name' ] . "'";
         }
 
         self::_prettyEcho( "Connecting to " . $this->host_machine_map[ $ip_converter ][ 'ip_machine_host' ] );
@@ -246,6 +287,7 @@ class ConvertersMonitor {
             foreach ( $cmd as $c ) {
                 $stream = ssh2_exec( $conn, $c );
                 stream_set_blocking( $stream, true );
+                sleep(1);
                 $stream_out  = ssh2_fetch_stream( $stream, SSH2_STREAM_STDIO );
                 $ret_content = stream_get_contents( $stream_out );
 
@@ -500,7 +542,7 @@ class ConvertersMonitor {
 //            }
 //
 //            if( $winword_total_load > 60 ){
-//                self::_prettyEcho( "> *** Found harmful instance of WINWORD, SET FOR REBOOT....", 4 );
+//                self::_prettyEcho( "> *** Found harmful instance, SET FOR REBOOT....", 4 );
 //                $this->setForReboot[ ] = $ip_converter;
 //            }
 //

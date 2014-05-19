@@ -44,8 +44,8 @@ APP = {
             APP.waitingConfirm = false;
             APP.cancelValue = true;
         }).on('click', '.popup-outer.closeClickingOutside', function(e) {
-            e.preventDefault();
-            APP.closePopup();
+			e.preventDefault();
+			$(this).parents('.modal').find('.x-popup').click();
         })
     },
     alert: function(options) {
@@ -53,12 +53,18 @@ APP = {
         // Alert message, NEVER displayed if there are a redirect after it because html div popups are no-blocking
         // Transform alert to a function like confirm with a callable function passed as callback
 		
+		if(typeof options == 'string') {
+			options.callback = false;
+			options.msg = options;
+		};
+		var callback = (typeof options == 'string')? false : options.callback;
+		var content = (typeof options == 'string')? options : options.msg;
 		this.popup({
 			type: 'alert',
-			onConfirm: options.callback,
+			onConfirm: callback,
 			closeClickingOutside: true,
 			title: 'Warning',
-			content: options.msg
+			content: content
 		});
     },
     confirm: function(options) {
@@ -77,6 +83,33 @@ APP = {
         this.checkConfirmation();
         return APP.confirmValue;
     },
+	initMessageBar: function() {
+		if(!$('header #messageBar').length) {
+			console.log('no messageBar found');
+			$('header').prepend('<div id="messageBar"><span class="msg"></span><a href="#" class="close"></a></div>');
+		}
+		$("body").on('click', '#messageBar .close', function(e) {
+			e.preventDefault();
+			$('body').removeClass('incomingMsg');
+			if(typeof $('#messageBar').attr('data-token') != 'undefined') {
+				var expireDate = new Date($('#messageBar').attr('data-expire'));
+				$.cookie($('#messageBar').attr('data-token'), '', { expires: expireDate });				
+			}
+		});
+	},
+	showMessage: function(options) {
+		$('#messageBar .msg').html(options.msg);
+		if(options.showOnce) {
+			$('#messageBar').attr({'data-token': 'msg-' + options.token, 'data-expire': options.expire});
+		}
+		if(typeof options.fixed != 'undefined') {
+			$('#messageBar').addClass('fixed');
+		} else {
+			$('#messageBar').removeClass('fixed');			
+		}
+		$('body').addClass('incomingMsg');
+	},
+
     checkConfirmation: function() {
 //        if(this.waitingConfirm) {
 //            setTimeout(function() {
@@ -97,29 +130,32 @@ APP = {
 //            }
 //        }
     },
-    doRequest: function(req,log) {
-        logTxt = (typeof log == 'undefined')? '' : '&type=' + log;
-        var setup = {
-            url: config.basepath + '?action=' + req.data.action + logTxt + this.appendTime(),
-            data: req.data,
-            type: 'POST',
-            dataType: 'json'
-            //TODO set timeout longer than server curl for TM/MT
-        };
+	doRequest: function(req,log) {
+		logTxt = (typeof log == 'undefined')? '' : '&type=' + log;
+		version = (typeof config.build_number == 'undefined')? '' : '-v' + config.build_number;
+		builtURL = (req.url)? req.url : config.basepath + '?action=' + req.data.action + logTxt + this.appendTime() + version;
+		var setup = {
+			url: builtURL,
+//			url: config.basepath + '?action=' + req.data.action + logTxt + this.appendTime() + version,
+			data: req.data,
+			type: 'POST',
+			dataType: 'json'
+			//TODO set timeout longer than server curl for TM/MT
+		};
 
-        // Callbacks
-        if (typeof req.success === 'function')
-            setup.success = req.success;
-        if (typeof req.complete === 'function')
-            setup.complete = req.complete;
-        if (typeof req.context != 'undefined')
-            setup.context = req.context;
-        if (typeof req.error === 'function')
-            setup.error = req.error;
-        if (typeof req.beforeSend === 'function')
-            setup.beforeSend = req.beforeSend;
-        $.ajax(setup);        
-    }, 
+		// Callbacks
+		if (typeof req.success === 'function')
+			setup.success = req.success;
+		if (typeof req.complete === 'function')
+			setup.complete = req.complete;
+		if (typeof req.context != 'undefined')
+			setup.context = req.context;
+		if (typeof req.error === 'function')
+			setup.error = req.error;
+		if (typeof req.beforeSend === 'function')
+			setup.beforeSend = req.beforeSend;
+		$.ajax(setup);        
+	}, 
     appendTime: function() {
         var t = new Date();
         return '&time=' + t.getTime();
@@ -172,7 +208,7 @@ APP = {
         $('body').append(newPopup);
 //        $('.modal:not([data-type=view])').show();
 //        $('.popup').fadeIn('fast');
-        if(conf.closeClickingOutside) $('.popup-outer').addClass('closeClickingOutside');
+		if(conf.closeClickingOutside) $('.popup-outer').addClass('closeClickingOutside');
     },
     closePopup: function() {
         $('.modal[data-type=view]').hide();
@@ -216,5 +252,15 @@ APP = {
             x1 = x1.replace(rgx, '$1' + ',' + '$2');
         }
         return x1 + x2;
-    }            
+    },
+	zerofill: function(i, l, s) {
+		var o = i.toString();
+		if (!s) {
+			s = '0';
+		}
+		while (o.length < l) {
+			o = s + o;
+		}
+		return o;
+	}
 };

@@ -274,7 +274,7 @@ $.extend(UI, {
 		}
 		var p = this.searchParams;
 //        console.log('mode: ' + mode + ' - coso: ' + coso);
-		var targetToo = typeof p.target != 'undefined';
+//		var targetToo = typeof p.target != 'undefined';
 		var containsFunc = (p['match-case']) ? 'contains' : 'containsNC';
 		var ignoreCase = (p['match-case']) ? '' : 'i';
 
@@ -287,8 +287,8 @@ $.extend(UI, {
 			console.log('source & target');
 			status = (p.status == 'all') ? '' : '.status-' + p.status;
 			q = (singleSegment) ? '#' + $(singleSegment).attr('id') : "section" + status + ':not(.status-new)';
-			var regSource = new RegExp('(' + htmlEncode(p.source) + ')', "g" + ignoreCase);
-			var regTarget = new RegExp('(' + htmlEncode(p.target) + ')', "g" + ignoreCase);
+			var regSource = new RegExp('(' + htmlEncode(p.source).replace(/\(/g, '\\(').replace(/\)/g, '\\)') + ')', "g" + ignoreCase);
+			var regTarget = new RegExp('(' + htmlEncode(p.target).replace(/\(/g, '\\(').replace(/\)/g, '\\)') + ')', "g" + ignoreCase);
 			txtSrc = p.source;
 			txtTrg = p.target;
 			srcHasTags = (txtSrc.match(/<.*?\>/gi) !== null) ? true : false;
@@ -308,13 +308,13 @@ $.extend(UI, {
 			} else {
 				sid = $(seg).attr('id');
 				if (where == 'before') {
-					$('section').each(function(index) {
+					$('section').each(function() {
 						if ($(this).attr('id') < sid) {
 							$(this).addClass('justAdded');
 						}
 					});
 				} else {
-					$('section').each(function(index) {
+					$('section').each(function() {
 						if ($(this).attr('id') > sid) {
 							$(this).addClass('justAdded');
 						}
@@ -340,20 +340,21 @@ $.extend(UI, {
 			}
 			hasTags = (txt.match(/<.*?\>/gi) !== null) ? true : false;
 			var regTxt = txt.replace('<', UI.openTagPlaceholder).replace('>', UI.closeTagPlaceholder);
-			var reg = new RegExp('(' + htmlEncode(regTxt) + ')', "g" + ignoreCase);
+			var reg = new RegExp('(' + htmlEncode(regTxt).replace(/\(/g, '\\(').replace(/\)/g, '\\)') + ')', "g" + ignoreCase);
+//			var reg = new RegExp('(' + htmlEncode(regTxt) + ')', "g" + ignoreCase);
 
 			if ((typeof where == 'undefined') || (where == 'no')) {
 				UI.doMarkSearchResults(hasTags, $(q + ":" + containsFunc + "('" + txt + "')"), reg, q, txt, ignoreCase);
 			} else {
 				sid = $(seg).attr('id');
 				if (where == 'before') {
-					$('section').each(function(index) {
+					$('section').each(function() {
 						if ($(this).attr('id') < sid) {
 							$(this).addClass('justAdded');
 						}
 					});
 				} else {
-					$('section').each(function(index) {
+					$('section').each(function() {
 						if ($(this).attr('id') > sid) {
 							$(this).addClass('justAdded');
 						}
@@ -506,6 +507,7 @@ $.extend(UI, {
 //		UI.goingToNext = false;
 	},
 	gotoSearchResultAfter: function(options) {
+		console.log('options: ', options);
 		el = options.el;
 		skipCurrent = (options.skipCurrent || false);
 		unmark = (options.unmark || false);
@@ -552,7 +554,7 @@ $.extend(UI, {
 			seg = $('section' + wh).has("mark.searchMarker");
 			ss = (this.searchMode == 'source&target')? el + '-editarea' : el;
 			found = false;
-			$.each(seg, function(index) {
+			$.each(seg, function() {
 				if ($(this).attr('id') >= ss) {
 					if (($(this).attr('id') == ss) && (skipCurrent)) {
 					} else {
@@ -667,10 +669,8 @@ $.extend(UI, {
 		e.preventDefault();
 		if ($('body').hasClass('filterOpen')) {
 			$('body').removeClass('filterOpen');
-//            $("body").scrollTop($("body").scrollTop()+$('.searchbox').height());
 		} else {
 			$('body').addClass('filterOpen');
-//            $("body").scrollTop($("body").scrollTop()-$('.searchbox').height());
 			$('#search-source').focus();
 		}
 	},

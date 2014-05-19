@@ -7,6 +7,7 @@
     <body>
 
         <header metal:define-macro="main_header">
+			<div id="messageBar"><span class="msg"></span><a href="#" class="close"></a></div>
             <div class="wrapper">   
 
           <ul class="header-menu" tal:condition="php: !job_archived ">
@@ -31,7 +32,7 @@
                     <input type="hidden" name="filename" tal:attributes ="value string:${downloadFileName}" />
                     <input type="hidden" name="password" tal:attributes="value password" />
                     <input type="hidden" name="download_type" value="all" />
-                    <input id="downloadProject" name="submit1" type="submit" tal:attributes="class string:downloadtr-button  ${job_stats/DOWNLOAD_STATUS};value php:(job_stats['TODO_FORMATTED'] == 0)? 'DOWNLOAD TRANSLATION' : 'PREVIEW'" />
+                    <input id="downloadProject" name="submit1" type="button" tal:attributes="class string:downloadtr-button  ${job_stats/DOWNLOAD_STATUS};value php:(job_stats['TODO_FORMATTED'] == 0 && job_stats['ANALYSIS_COMPLETE'] )? 'DOWNLOAD TRANSLATION' : 'PREVIEW'" />
                 </form>
           </li>
         

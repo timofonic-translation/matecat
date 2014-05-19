@@ -33,10 +33,22 @@ UI = {
 		});
         return num
     },
+    checkTMXLangFailure: function() {
+        return $('#source-lang' ).hasClass( 'failed-tmx-lang' ) || $('#target-lang' ).hasClass( 'failed-tmx-lang' );
+    },
+    addTMXLangFailure: function(){
+        $('#source-lang' ).addClass( 'failed-tmx-lang' );
+        $('#target-lang' ).addClass( 'failed-tmx-lang' );
+    },
+    delTMXLangFailure: function(){
+        $('#source-lang' ).removeClass( 'failed-tmx-lang' );
+        $('#target-lang' ).removeClass( 'failed-tmx-lang' );
+        $('.uploadbtn').attr('value','Analyze').removeAttr('disabled').removeClass('disabled');
+    },
     confirmRestartConversions: function() {
         UI.restartConversions();
     },
-    errorsBeforeUpload: function(file) {
+    errorsBeforeUpload: function(file) {console.log('errorsBeforeUpload');
 //        console.log(file);
         ext = file.name.split('.')[file.name.split('.').length - 1];
 //        console.log(ext);
@@ -60,7 +72,7 @@ UI = {
             msg = 'Error during upload. The uploaded file exceed the file size limit of ' + config.maxFileSizePrint;
         }
 		UI.checkFailedConversionsNumber();
-		
+		console.log('msg: ', msg);
         return msg;
     },
     restartConversions: function() {
@@ -88,15 +100,37 @@ UI = {
 				$('.operation',filerow).remove();
 				$('.progress',filerow).remove();
 				  console.log('ACTION: restartConversions');
-				convertFile(filename,filerow,filesize);
+				convertFile(filename,filerow,filesize,true);
 			}
     	});
     },
     
-    checkAnalyzability: function() {
-    	return checkAnalyzability();
-    },
-    
+	checkAnalyzability: function() {
+		return checkAnalyzability();
+	},
+
+	TMXloaded: function() {
+		$('#disable_tms_engine').trigger('click');
+		this.createKeyByTMX();
+	},
+
+	createKeyByTMX: function() {
+		if($('#create_private_tm_btn[data-key]').length) { // a key has already been created
+			console.log('già cliccato');
+			if($('#private-tm-key').text() == '') {
+				$('#private-tm-key').val($('#create_private_tm_btn').attr('data-key'));
+			}
+		} else {
+		   if(!$(".more").hasClass('minus')) $(".more").trigger('click');
+//		   $('#create_private_tm_btn').trigger('click');
+//		   $('#private-tm-key').addClass('selected');			 
+//		   $('#private-tm-key').addClass('selected').effect( "pulsate", "slow" );			 
+		}
+
+		$('.warning-message').html('<span>You are uploading a translation memory. To keep it private, generate a private TM key or enter an existing key. If you do not provide a private TM key, the content of your TMX file and project will be available to all MateCat users.</span>').show();
+		
+	},
+
     checkFailedConversionsNumber: function() {
     	return checkFailedConversionsNumber();
     }
@@ -150,7 +184,22 @@ $(function () {
         console.log(data.files[0].size);
         console.log(config.maxFileSize);
         console.log(data.files[0].type);
-        
+         console.log(data.files[0].name.split('.')[data.files[0].name.split('.').length - 1]);
+		 var extension = data.files[0].name.split('.')[data.files[0].name.split('.').length - 1];
+		 if(extension == 'tmx') {
+			 var tmDisabled = (typeof $('#disable_tms_engine').attr("checked") == 'undefined')? false : true;
+			 if(tmDisabled)  {
+				APP.alert({
+					msg: 'The TM was disabled. It will now be enabled.', 
+					callback: 'TMXloaded'
+				});						 
+			 } else {
+				 UI.createKeyByTMX();			
+			 };
+
+//			 return false;
+		 }
+       
 //        if(!isValidFileExtension(data.files[0].name)) {
 //            alert($('.upload-table tr').length);
 //			jqXHR = data.submit();
@@ -759,7 +808,17 @@ checkAnalyzability = function(who) {
 			if(!$(this).hasClass('ready')) {
 				res = false;
 			}
-		})
+			var filename = $(this).find('.name').text();
+			if(filename.split('.')[filename.split('.').length -1].toLowerCase() == 'tmx') {
+				$(this).addClass('tmx');
+			}
+//			if((filename.split('.')[filename.split('.').length -1].toLowerCase() == 'tmx')&&($('.upload-table tr:not(.failed)').length == 1)) {
+//				res = false;				
+//			};
+		});
+		if(!$('.upload-table tr:not(.failed, .tmx)').length) {
+			return false;
+		}
 		if($('.upload-table tr.failed').length) res = false;
 		return res;
 	} else {

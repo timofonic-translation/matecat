@@ -12,6 +12,7 @@ class INIT {
 	public static $DB_DATABASE;
 	public static $DB_USER;
 	public static $DB_PASS;
+    public static $MEMCACHE_SERVERS = array();
 	public static $LOG_REPOSITORY;
 	public static $STORAGE_DIR;
 	public static $UPLOAD_REPOSITORY;
@@ -47,6 +48,24 @@ class INIT {
 	public static $MAX_UPLOAD_FILE_SIZE;
 	public static $MAX_NUM_FILES;
     public static $REFERENCE_REPOSITORY;
+
+
+
+
+
+    /**
+     * ENABLE_OUTSOURCE set as true will show the option to outsource to an external translation provider (translated.net by default)
+     * You can set it to false, but We are happy if you keep this on.
+     * For each translation outsourced to Translated.net (the main Matecat developer),
+     * Matecat gets more development budget and bugs fixes and new features get implemented faster.
+     * In short: please turn it off only if strictly necessary :)
+     * @var bool
+     */
+    public static $ENABLE_OUTSOURCE = true;
+
+
+
+
 
 	private function initOK() {
 
@@ -106,7 +125,7 @@ class INIT {
         if( !empty($custom_paths) ){
             $def_path = array_merge( $def_path, $custom_paths );
         }
-        set_include_path ( implode( PATH_SEPARATOR, $def_path ) );
+        set_include_path ( get_include_path() . PATH_SEPARATOR . implode( PATH_SEPARATOR, $def_path ) );
     }
 
     public static function loadClass( $className ) {
@@ -153,8 +172,9 @@ class INIT {
 		self::$DB_SERVER   = "localhost"; //database server
 		self::$DB_DATABASE = "matecat"; //database name
 		self::$DB_USER     = "matecat"; //database login
-		self::$DB_PASS     = "matecat01"; //databasepassword
+		self::$DB_PASS     = "matecat01"; //database password
 
+        self::$MEMCACHE_SERVERS = array( /* "localhost:11211" => 1 */ );
 
 		self::$STORAGE_DIR                     = self::$ROOT . "/storage";
 		self::$LOG_REPOSITORY                  = self::$STORAGE_DIR . "/log_archive";
@@ -209,9 +229,23 @@ class INIT {
 		self::$AUTHCOOKIENAME='matecat_login';
 		self::$AUTHCOOKIEDURATION=86400*60;
 		self::$ENABLED_BROWSERS = array('chrome', 'safari', 'firefox');
-		self::$CONVERSION_ENABLED = false;
-		self::$ANALYSIS_WORDS_PER_DAYS = 3000;
-		self::$BUILD_NUMBER = '0.3.3.8';
+
+        /**
+         * Matecat open source by default only handles xliff files with a strong focus on sdlxliff
+         * ( xliff produced by SDL Trados )
+         *
+         * We are not including the file converters into the Matecat code because we haven't find any open source
+         * library that satisfy the required quality and licensing.
+         *
+         * Here you have two options
+         *  a) Keep $CONVERSION_ENABLED to false, manually convert your files into xliff using SDL Trados, Okapi or similar
+         *  b) Set $CONVERSION_ENABLED to true and implement your own converter
+         *
+         */
+        self::$CONVERSION_ENABLED = false;
+
+        self::$ANALYSIS_WORDS_PER_DAYS = 3000;
+		self::$BUILD_NUMBER = '0.3.4.3';
 		self::$VOLUME_ANALYSIS_ENABLED = true;
 
 		self::$WARNING_POLLING_INTERVAL = 20; //seconds
@@ -226,71 +260,72 @@ class INIT {
 
         self::$SUPPORTED_FILE_TYPES = array(
             'Office'              => array(
-                'doc'  => array( '' ),
-                'dot'  => array( '' ),
-                'docx' => array( '' ),
-                'dotx' => array( '' ),
-                'docm' => array( '' ),
-                'dotm' => array( '' ),
-                'pdf'  => array( '' ),
-                'xls'  => array( '' ),
-                'xlt'  => array( '' ),
-                'xlsm' => array( '' ),
-                'xlsx' => array( '' ),
-                'xltx' => array( '' ),
-                'pot'  => array( '' ),
-                'pps'  => array( '' ),
-                'ppt'  => array( '' ),
-                'potm' => array( '' ),
-                'potx' => array( '' ),
-                'ppsm' => array( '' ),
-                'ppsx' => array( '' ),
-                'pptm' => array( '' ),
-                'pptx' => array( '' ),
-                'odp'  => array( '' ),
-                'ods'  => array( '' ),
-                'odt'  => array( '' ),
-                'sxw'  => array( '' ),
-                'sxc'  => array( '' ),
-                'sxi'  => array( '' ),
-                'txt'  => array( '' ),
-                'csv'  => array( '' ),
-                'xml'  => array( '' )
+                'doc'  => array( '','','extdoc'),
+                'dot'  => array( '','','extdoc'),
+                'docx' => array( '','','extdoc'),
+                'dotx' => array( '','','extdoc'),
+                'docm' => array( '','','extdoc'),
+                'dotm' => array( '','','extdoc'),
+                'pdf'  => array( '','','extpdf'),
+                'xls'  => array( '','','extxls'),
+                'xlt'  => array( '','','extxls'),
+                'xlsm' => array( '','','extxls'),
+                'xlsx' => array( '','','extxls'),
+                'xltx' => array( '','','extxls'),
+                'pot'  => array( '','','extppt'),
+                'pps'  => array( '','','extppt'),
+                'ppt'  => array( '','','extppt'),
+                'potm' => array( '','','extppt'),
+                'potx' => array( '','','extppt'),
+                'ppsm' => array( '','','extppt'),
+                'ppsx' => array( '','','extppt'),
+                'pptm' => array( '','','extppt'),
+                'pptx' => array( '','','extppt'),
+                'odp'  => array( '','','extppt'),
+                'ods'  => array( '','','extxls'),
+                'odt'  => array( '','','extdoc'),
+                'sxw'  => array( '','','extdoc'),
+                'sxc'  => array( '','','extxls'),
+                'sxi'  => array( '','','extppt'),
+                'txt'  => array( '','','exttxt'),
+                'csv'  => array( '','','extxls'),
+                'xml'  => array( '','','extxml')
                 //                'vxd' => array("Try converting to XML")
             ),
             'Web'                 => array(
-                'htm'   => array( '' ),
-                'html'  => array( '' ),
-                'xhtml' => array( '' ),
-                'xml'   => array( '' )
+                'htm'   => array( '','','exthtm'),
+                'html'  => array( '','','exthtm'),
+                'xhtml' => array( '','','exthtm'),
+                'xml'   => array( '','','extxml')
             ),
             "Interchange Formats" => array(
-                'xliff'    => array( 'default' ),
-                'sdlxliff' => array( 'default' ),
-                'ttx'      => array( '' ),
-                'itd'      => array( '' ),
-                'xlf'      => array( 'default' )
+                'xliff'    => array( 'default','','extxif' ),
+                'sdlxliff' => array( 'default','','extixif' ),
+                'tmx'    => array( '','','exttmx'),
+                'ttx'      => array( '','','extttx'),
+                'itd'      => array( '','','extitd'),
+                'xlf'      => array( 'default', '', 'extxlf' )
             ),
             "Desktop Publishing"  => array(
                 //                'fm' => array('', "Try converting to MIF"),
-                'mif'  => array( '' ),
-                'inx'  => array( '' ),
-                'idml' => array( '' ),
-                'icml' => array( '' ),
+                'mif'  => array( '','','extmif'),
+                'inx'  => array( '','','extidd'),
+                'idml' => array( '','','extidd'),
+                'icml' => array( '','','extidd'),
                 //                'indd' => array('', "Try converting to INX"),
-                'xtg'  => array( '' ),
-                'tag'  => array( '' ),
-                'xml'  => array( '' ),
-                'dita' => array( '' )
+                'xtg'  => array( '','','extqxp'),
+                'tag'  => array( '','','exttag'),
+                'xml'  => array( '','','extxml'),
+                'dita' => array( '','','extdit')
             ),
             "Localization"        => array(
-                'properties' => array( '' ),
-                'rc'         => array( '' ),
-                'resx'       => array( '' ),
-                'xml'        => array( '' ),
-                'dita'       => array( '' ),
-                'sgml'       => array( '' ),
-                'sgm'        => array( '' )
+                'properties' => array( '','','extpro'),
+                'rc'         => array( '','','extrcc'),
+                'resx'       => array( '','','extres'),
+                'xml'        => array( '','','extxml'),
+                'dita'       => array( '','','extdit'),
+                'sgml'       => array( '','','extsgm'),
+                'sgm'        => array( '','','extsgm')
             )
         );
 
@@ -330,18 +365,22 @@ class INIT {
             case E_USER_ERROR:
             case E_RECOVERABLE_ERROR:
 
-                if( !ob_end_clean() ) ob_start();
+                ini_set( 'display_errors', 'Off' );
+
+                if( !ob_get_level() ){ ob_start(); }
+                else { ob_end_clean(); ob_start(); }
+
                 debug_print_backtrace();
                 $output = ob_get_contents();
                 ob_end_clean();
 
                 # Here we handle the error, displaying HTML, logging, ...
-                $output .= "<pre>";
+                $output .= "<pre>\n";
                 $output .= "[ {$errorType[$error['type']]} ]\n\t";
                 $output .= "{$error['message']}\n\t";
                 $output .=  "Not Recoverable Error on line {$error['line']} in file " . $error['file'];
                 $output .=  " - PHP " . PHP_VERSION . " (" . PHP_OS . ")\n";
-                $output .=  " - REQUEST URI: " . print_r( $_SERVER['REQUEST_URI'], true ) . "\n";
+                $output .=  " - REQUEST URI: " . print_r( @$_SERVER['REQUEST_URI'], true ) . "\n";
                 $output .=  " - REQUEST Message: " . print_r( $_REQUEST, true ) . "\n";
                 $output .=  "\n\t";
                 $output .=  "Aborting...\n";

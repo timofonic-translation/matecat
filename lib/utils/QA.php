@@ -13,7 +13,7 @@ class errObject {
     public $outcome;
     public $debug;
 
-    private $orig_debug;
+    protected $orig_debug;
 
     /**
      * Output externally the original debug string, needed for occurrence count
@@ -284,9 +284,9 @@ class QA {
 
     protected static $regexpAscii = '/([\x{00}-\x{1F}\x{7F}]{1})/u';
 
-    protected static $regexpEntity = '/&#x([0-1]{0,1}[0-9A-F]{1})/u'; //&#x1E;  &#xE;
+    protected static $regexpEntity = '/&#x([0-1]{0,1}[0-9A-F]{1,2})/u'; //&#x1E;  &#xE;
 
-    protected static $regexpPlaceHoldAscii = '/##\$_([0-1]{0,1}[0-9A-F]{1})\$##/u';
+    protected static $regexpPlaceHoldAscii = '/##\$_([0-1]{0,1}[0-9A-F]{1,2})\$##/u';
 
     /**
      * List of Errors from  check analysis
@@ -392,7 +392,7 @@ class QA {
      * )
      * </pre>
      *
-     * @param errObject[] $list
+     * @param $list errObject[]
      * @param bool $count
      * @return errObject[]
      */
@@ -494,7 +494,8 @@ class QA {
         if ( !empty( $matches_src[ 1 ] ) ) {
             $test_src = $source_seg;
             foreach ( $matches_src[ 1 ] as $v ) {
-                $test_src = preg_replace( '/(\x{' . sprintf( "%02X", ord( $v ) ) .'}{1})/u', self::$asciiPlaceHoldMap[ sprintf( "%02X", ord( $v ) ) ][ 'placeHold' ], $test_src, 1 );
+                $key = "" . sprintf( "%02X", ord( $v ) ) . "";
+                $test_src = preg_replace( '/(\x{' . sprintf( "%02X", ord( $v ) ) .'}{1})/u', self::$asciiPlaceHoldMap[ $key ][ 'placeHold' ], $test_src, 1 );
             }
             //Source Content wrong use placeholded one
             $source_seg = $test_src;
@@ -503,7 +504,8 @@ class QA {
         if ( !empty( $matches_trg[ 1 ] ) ) {
             $test_trg = $target_seg;
             foreach ( $matches_trg[ 1 ] as $v ) {
-                $test_trg = preg_replace( '/(\x{' . sprintf( "%02X", ord( $v ) ) .'}{1})/u', self::$asciiPlaceHoldMap[ sprintf( "%02X", ord( $v ) ) ][ 'placeHold' ], $test_trg, 1 );
+                $key = "" . sprintf( "%02X", ord( $v ) ) . "";
+                $test_trg = preg_replace( '/(\x{' . sprintf( "%02X", ord( $v ) ) .'}{1})/u', self::$asciiPlaceHoldMap[ $key ][ 'placeHold' ], $test_trg, 1 );
             }
             //Target Content wrong use placeholded one
             $target_seg = $test_trg;
@@ -532,7 +534,12 @@ class QA {
                 } else {
                     $regexp = '/&#x(' . $byte . ');/u';
                 }
-                $test_src = preg_replace( $regexp, self::$asciiPlaceHoldMap[ sprintf( "%02X", ord( $v ) ) ][ 'placeHold' ], $test_src );
+
+                $key = "" . sprintf( "%02X", hexdec( $v ) ) . "";
+                if( array_key_exists( $key, self::$asciiPlaceHoldMap ) ){
+                    $test_src = preg_replace( $regexp, self::$asciiPlaceHoldMap[ $key ][ 'placeHold' ], $test_src );
+                }
+
             }
             //Source Content wrong use placeholded one
             $source_seg = $test_src;
@@ -547,7 +554,12 @@ class QA {
                 } else {
                     $regexp = '/&#x(' . $byte . ');/u';
                 }
-                $test_trg = preg_replace( $regexp, self::$asciiPlaceHoldMap[ sprintf( "%02X", ord( $v ) ) ][ 'placeHold' ], $test_trg );
+
+                $key = "" . sprintf( "%02X", hexdec( $v ) ) . "";
+                if( array_key_exists( $key, self::$asciiPlaceHoldMap ) ){
+                    $test_trg = preg_replace( $regexp, self::$asciiPlaceHoldMap[ $key ][ 'placeHold' ], $test_trg );
+                }
+
             }
             //Target Content wrong use placeholded one
             $target_seg = $test_trg;
@@ -718,6 +730,7 @@ class QA {
                     'id'        => $elementID,
                     'parent_id' => $parentID,
                     'node_idx'  => $i,
+                    'innerHTML' => $element->ownerDocument->saveXML( $element )
                 );
 
                 //set depth and increment for next occurrence
@@ -776,7 +789,7 @@ class QA {
     protected function _loadDom( $xmlString, $targetErrorType ){
         libxml_use_internal_errors(true);
         $dom = new DOMDocument('1.0', 'utf-8');
-        $trg_xml_valid = @$dom->loadXML("<root>$xmlString</root>", LIBXML_NOBLANKS | LIBXML_NOENT );
+        $trg_xml_valid = @$dom->loadXML("<root>$xmlString</root>", LIBXML_NOENT );
         if ($trg_xml_valid === FALSE) {
 
             $rrorList = libxml_get_errors();
@@ -1007,7 +1020,7 @@ class QA {
             //$this->_addError(self::ERR_BOUNDARY_TAIL);
 
         } else {
-            $this->target_seg = preg_replace( '#[\s\t\r\n]+$#u', "", $this->target_seg );
+            $this->target_seg = rtrim( $this->target_seg );
         }
 
         $this->trgDom = $this->_loadDom( $this->target_seg, self::ERR_TARGET );
@@ -1033,7 +1046,7 @@ class QA {
         try {
             $this->_prepareDOMStructures();
         } catch ( DOMException $ex ) {
-            Log::doLog( $ex->getMessage() );
+            Log::doLog("tryRealignTagID: ".$ex->getMessage() );
             return $this->getErrors();
         }
 
@@ -1438,6 +1451,13 @@ class QA {
             //IMPORTANT NOTE :
             //SEE http://www.php.net/manual/en/domdocument.savexml.php#88525
             preg_match('/<root>(.*)<\/root>/us', $this->normalizedTrgDOM->saveXML($this->normalizedTrgDOM->documentElement), $matches );
+
+//            try {
+//                throw new Exception();
+//            } catch ( Exception $e ){
+//                Log::doLog( "\n" . $this->trgDom->saveXML() );
+//                Log::doLog( $e->getTraceAsString() . "\n\n");
+//            }
 
             /**
             * Why i do this?? I'm replacing Placeholders of non printable chars

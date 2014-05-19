@@ -10,20 +10,24 @@
     <link rel="stylesheet" href="${basepath}public/css/popup.css?build=${build_number}"/>
 
     <script type="text/javascript">
-        var config = {
-            basepath: '${basepath | string:/}',
-            status: '${project_status}',
-            totalSegments: '${num_segments}',
-            totalAnalyzed: '${num_segments_analyzed}',
-            isLoggedIn: '${isLoggedIn}',
-            showModalBoxLogin: '${showModalBoxLogin}'
+		var config = {
+			basepath: '${basepath | string:/}',
+			status: '${project_status}',
+			totalSegments: '${num_segments}',
+			totalAnalyzed: '${num_segments_analyzed}',
+			isLoggedIn: '${isLoggedIn}',
+			showModalBoxLogin: '${showModalBoxLogin}',
+			enable_outsource: ${enable_outsource},
+            daemon_warning: ${daemon_misconfiguration}
         };
     </script>
 
     <script type="text/javascript" src="${basepath}public/js/lib/jquery.js"></script>
     <script type="text/javascript" src="${basepath}public/js/lib/jquery-ui.js"></script>
+    <script type="text/javascript" src="${basepath}public/js/lib/jquery-dateFormat.min.js"></script>
     <script type="text/javascript" src="${basepath}public/js/common.js?build=${build_number}"></script>
     <script type="text/javascript" src="${basepath}public/js/analyze.js?build=${build_number}"></script>
+    <script type="text/javascript" src="${basepath}public/js/outsource.js?build=${build_number}"></script>
     <script type='text/javascript' src="${basepath}public/js/login.js?build=${build_number}"></script>
     <script type='text/javascript' src="${basepath}public/js/logout.js?build=${build_number}"></script>
 
@@ -70,7 +74,7 @@
         <ul id="standard-equivalent-words" class="cost-table">
 
             <li class="box"><span class="word-number loading" tal:content="standard_analysis_wc_print"> </span><br/>
-                Standard equivalent* words<br/>
+                Standard weighted* words<br/>
                     <span class="days">
                         <strong>
                             <span class="workDays" tal:content="standard_wc_time">11,5</span> work
@@ -93,7 +97,7 @@
                     <span>16</span>%<br/>less
                 </p>
                 <span class="word-number loading" tal:content="tm_analysis_wc_print"></span><br/>
-                MateCat equivalent words<br/>
+                MateCat weighted words<br/>
                     <span class="days">
                         <strong>
                             <span class="workDays" tal:content="fast_wc_time">9,5</span> work
@@ -132,7 +136,7 @@
         <p class="short-message">MateCat lets you re-use repeated content better. <br/>
             MateCat leverages MyMemory, Professional Machine Translation and internal fuzzy matches to make you save
             money and have a faster turnaround.
-            <br/>*Equivalent words is how the industry count words after discounting repetition and matches against a
+            <br/>*Weighted words is how the industry count words after discounting repetition and matches against a
             desktop translation memory. Like Trados would have done. <!--<a href="">Learn More</a>.-->
         </p>
 
@@ -230,7 +234,7 @@
                 <div tal:define="splitted id_for_job/splitted">
 
                     <h3>
-                        <span tal:replace="id_for_job/source">English</span> &gt; <span tal:replace="id_for_job/target">Italian</span>
+                        <span class="source_lang" tal:content="id_for_job/source">English</span> &gt; <span class="target_lang" tal:content="id_for_job/target">Italian</span>
                     </h3>
 
                     <div class="splitbtn-cont">
@@ -332,7 +336,7 @@
                                 <td class="stat_tmic">0</td>
                                 <td class="stat_mt">0</td>
                                 <td class="empty">
-                                    <a tal:attributes="href string:${basepath}translate/${pname}/${job/source_short}-${job/target_short}/${job/jid}-${job/jpassword}" href="#" target="_blank" class="uploadbtn">Translate</a>
+                                    <a tal:attributes="href string:${basepath}translate/${pname}/${job/source_short}-${job/target_short}/${job/jid}-${job/jpassword}" href="#" target="_blank" class="uploadbtn translate">Translate</a>
                                 </td>
                             </tr>
                             <tal:block tal:define="files job/files; f php:array()" tal:repeat="f files">
@@ -381,6 +385,11 @@
     </div>
     <div class="cl"></div>
 </div>
+
+<div metal:use-macro="outsourceModal.html/outsource_modal">
+    <!-- Outsource Modal Popup goes here -->
+</div>
+ 
 
 <div class="modal popup-split" data-type="view">
     <div class="popup-outer"></div>
@@ -448,6 +457,8 @@
 
 </content>
 
+
+
 <footer>
     <div class="wrapper">
 
@@ -501,12 +512,6 @@
     </div>
 </div>
 <!-- FINE POPUP LOGIN -->
-<!-- JS SPLIT JOB  -->
-<script type="text/javascript">
-
-</script>
-
-<!-- FINE JS SPLIT JOB -->
 <script src="${basepath}public/js/lib/snapengage.js"></script>
 
 </body>

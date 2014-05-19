@@ -1,3 +1,7 @@
+<?
+require_once '../../inc/config.inc.php';
+INIT::obtain();
+?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -20,7 +24,8 @@
             <h1>API</h1>
                 <ul class="menu">
                     <li><a href="#new-post">/new (POST)</a></li>
-                    <li><a href="#status-post">/status (POST)</a></li>
+                    <li><a href="#status-post">/status (GET)</a></li>
+                    <li><a href="#change_project_password-post">/change_project_password (POST)</a></li>
                     <li><a href="#file-format">Supported file format</a></li>
                      <li><a href="#languages">Supported languages</a></li>
                 </ul>
@@ -35,7 +40,7 @@
                     </dd>
                     <dt class="url-label">URL Structure</dt>
                     <dd>
-                        <pre class="literal-block">https://matecatpro.translated.net/<b>api</b>/new</pre>
+                        <pre class="literal-block"><?=INIT::$HTTPHOST . INIT::$BASEURL?><b>api</b>/new</pre>
                     </dd>
                     <dt>Method</dt>
                     <dd>POST ( multipart/form-data )</dd>
@@ -68,11 +73,11 @@
                         <p>The metadata for the created project.</p>
                 
                         <p>More information on the returned metadata fields are available
-                            <a href="http://matecat.local/api/docs#metadata-new-details">here</a>
+                            <a href="<?=INIT::$HTTPHOST . INIT::$BASEURL?>api/docs#metadata-new-details">here</a>
                         </p>
                 
                         <p>A complete list of accepted languages in the right format are available
-                            <a href="http://matecat.local/api/docs#supported-langs">here</a>
+                            <a href="<?=INIT::$HTTPHOST . INIT::$BASEURL?>api/docs#supported-langs">here</a>
                         </p>
                 
                         <p><strong>Sample JSON response</strong></p>
@@ -129,22 +134,83 @@
                                 <td colspan="2">
                                         <pre class="literal-block">
 {
-    "status": "FAIL",
-}                                       </pre>
+	status: "FAIL"
+	message: "Project Conversion Failure"
+	debug: [2]
+	0:  {
+		code: -110
+		message: "Error: there is a problem with this file, it cannot be converted back to the original one."
+		debug: "TEST_FAILURE_DOC1.docx"
+	}
+	1:  {
+		code: -100
+		message: "Conversion error. Try opening and saving the document with a new name. If this does not work, try converting to DOC."
+		debug: "TEST_FAILURE_DOC2.docx"
+	}
+
+}                                      </pre>
                                 </td>
                             </tr>
                             </tbody>
                         </table>
+
+                        <p><strong>Debug Codes</strong></p>
+                        <table class="tablestats" width="100%" border="0" cellspacing="0" cellpadding="0">
+
+                            <tbody>
+                            <tr>
+                                <th>code</th>
+                                <th>message</th>
+                                <th>debug</th>
+                            </tr>
+                            <tr>
+                                <td>-1</td>
+                                <td>"Error: missing file name."</td>
+                                <td>NULL</td>
+                            </tr>
+                            <tr>
+                                <td>-6</td>
+                                <td>"Error during upload. Please retry."</td>
+                                <td>NULL</td>
+                            </tr>
+                            <tr>
+                                <td>-100</td>
+                                <td>"Conversion error. Try opening and saving the document with a new name. If this does not work, try converting to DOC."</td>
+                                <td>The failed file name. </td>
+                            </tr>
+                            <tr>
+                                <td>-101</td>
+                                <td>"Error: failed to save converted file from cache to disk"</td>
+                                <td>The failed file name. </td>
+                            </tr>
+                            <tr>
+                                <td>-102</td>
+                                <td>"Error: File too large"</td>
+                                <td>The failed file name. </td>
+                            </tr>
+                            <tr>
+                                <td>-103</td>
+                                <td>"Error: failed to save file on disk"</td>
+                                <td>The failed file name. </td>
+                            </tr>
+                            <tr>
+                                <td>-110</td>
+                                <td>"Error: there is a problem with this file, it cannot be converted back to the original one."</td>
+                                <td>The failed file name. </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
                     </dd>
                     <dt>Notes</dt>
                     <dd><p><code>/new</code> has a maximum file size limit of 60 MB per file and a max number of files of 100.</p></dd>
                     <dd><p>Matecat PRO accept only 54 file formats. A list of all accepted file are available
-                        <a href="http://matecat.local/api/docs#accepted-files">here</a></p>
+                        <a href="<?=INIT::$HTTPHOST . INIT::$BASEURL?>api/docs#accepted-files">here</a></p>
                     </dd>
                 </dl>
                 
                 <a class="gototop" href="#top">Go to top</a>
-             </div>
+            </div>
             <div class="block">
                 <a name="status-post"><h3 class="method-title">/status (GET)</h3></a>
                 <dl>
@@ -153,7 +219,7 @@
                         </dd>
                         <dt class="url-label">URL Structure</dt>
                         <dd>
-                            <pre class="literal-block">https://matecatpro.translated.net/<b>api</b>/status/?<code>id_project=<12345></code>&<code>project_pass=<1abcde123></abcde123></code></pre>
+                            <pre class="literal-block"><?=INIT::$HTTPHOST . INIT::$BASEURL?><b>api</b>/status/?<code>id_project=<12345></code>&<code>project_pass=<1abcde123></abcde123></code></pre>
                         </dd>
                         <dt>Method</dt>
                         <dd>GET</dd>
@@ -161,10 +227,10 @@
                         <dd>
                             <ul class="parameters">
                                 <li><span class="req">required</span> <code class="param"> id_project</code> <code>(int)</code> The identifier of the project, should be the
-                                    value returned by the <a href="http://matecat.local/api/docs#new-post"><code>/new</code></a> method.
+                                    value returned by the <a href="<?=INIT::$HTTPHOST . INIT::$BASEURL?>api/docs#new-post"><code>/new</code></a> method.
                                 </li>
                                 <li><span class="req">required</span> <code class="param"> project_pass</code> <code>(string)</code> The password associated with the project, should be the
-                                    value returned by the <a href="http://matecat.local/api/docs#new-post"><code>/new</code></a> method ( associated with the id_project )
+                                    value returned by the <a href="<?=INIT::$HTTPHOST . INIT::$BASEURL?>api/docs#new-post"><code>/new</code></a> method ( associated with the id_project )
                                 </li>
                             </ul>
                         </dd>
@@ -173,7 +239,7 @@
                         <p>The metadata for the created project containing the status of the project.</p>
                         
                         <p>More information on the returned metadata fields are available
-                            <a href="http://matecat.local/api/docs#metadata-status-details">here</a>
+                            <a href="<?=INIT::$HTTPHOST . INIT::$BASEURL?>api/docs#metadata-status-details">here</a>
                         </p>
                         
                         <p><strong>Sample JSON response</strong></p>
@@ -312,7 +378,7 @@
    "analyze": "/analyze/MyProject4/5368-76ba60c027b9",
    "jobs": {
         "langpairs": {
-                "5615-e77eeea779d2": "de-DE-en-US"
+                "5615-e77eeea779d2": "de-DE|en-US"
         },
        "job-url": {
             "5615-e77eeea779d2": "/translate/MyProject4/de-DE-en-US/5615-e77eeea779d2"
@@ -355,7 +421,7 @@
                                 <td>Return the analysis status of the project. The statuses can be:
                                     <ul>
                                         <li><code>ANALYZING</code> indicating that the analysis/creation still working.</li>
-                                        <li><code>NO_SEGMENTS_FOUND</code> indicating that the project are no segments to analyze.</li>
+                                        <li><code>NO_SEGMENTS_FOUND</code> indicating that the project has no segments to analyze.</li>
                                         <li><code>ANALYSIS_NOT_ENABLED</code> indicating that no analysis will be performed because of matecat configurations.</li>
                                         <li><code>DONE</code> indicating that the analysis/creation is completed.</li>
                                         <li><code>FAIL</code> indicating that the analysis/creation is failed.</li>
@@ -409,7 +475,7 @@
                             </tr>
                             <tr>
                                 <td><code>NUMBERS_ONLY</code></td>
-                                <td>A field containing only number, dates and similar not translatable data ( Ex: 93/127 ) found in the project/chunk/file</td>
+                                <td>A field containing only number, dates and similar not translatable data ( <br />Ex: 93/127 ) found in the project/chunk/file</td>
                             </tr>
                             <tr>
                                 <td><code>IN_QUEUE_BEFORE</code></td>
@@ -456,6 +522,10 @@
                         
                                 <tbody>
                                 <tr>
+                                <th>field</th>
+                                <th>description</th>
+                            </tr>
+                                <tr>
                                     <td>FAIL</td>
                                     <td>Wrong Password. Access denied</td>
                                 </tr>
@@ -475,13 +545,113 @@
                                 </tbody>
                             </table>
                         </dd>
-                        
                         </dl>
-                        
-                        
-                        <a class="gototop" href="#top">Go to top</a>        
+                        <a class="gototop" href="#top">Go to top</a>
 			</div>
-           
+
+        <!-- change Password Block -->
+        <div class="block">
+            <a name="change_project_password-post"><h3 class="method-title">/change_project_password (POST)</h3></a>
+            <dl>
+                <dt>Description</dt>
+                <dd><p>Change the password of a project.</p>
+                </dd>
+                <dt class="url-label">URL Structure</dt>
+                <dd>
+                    <pre class="literal-block"><?=INIT::$HTTPHOST . INIT::$BASEURL?><b>api</b>/change_project_password</pre>
+                </dd>
+                <dt>Method</dt>
+                <dd>POST ( application/x-www-form-urlencoded )</dd>
+                <dt>Parameters</dt>
+                <dd>
+                    <ul class="parameters">
+                        <li><span class="req">required</span> <code class="param">id_project</code> <code>(int)</code>
+                            The id of the project you want to update.
+                        </li>
+                        <li><span class="req">required</span> <code class="param">old_pass</code>
+                            <code>(string)</code> The OLD password of the project you want to update.</a>
+                        </li>
+                        <li><span class="req">required</span> <code class="param">new_pass</code>
+                            <code>(string)</code> The NEW password of the project you want to update.</a>
+                        </li>
+                    </ul>
+                </dd>
+                <dt>Returns</dt>
+                <dd>
+                    <p>The result status for the request.</p>
+
+                    <p><strong>Sample JSON response</strong></p>
+                                <pre class="literal-block">
+{
+    "status": "OK",
+    "id_project": "5425",
+    "project_pass": "3cde561e42d1"
+}                              </pre>
+                    <p><strong>Return value definitions</strong></p>
+                    <table id="metadata-change_project_password" class="tablestats" width="100%" border="0" cellspacing="0" cellpadding="0">
+                        <tbody>
+                        <tr>
+                            <th>field</th>
+                            <th>description</th>
+                        </tr>
+                        <tr>
+                            <td><code>status</code></td>
+                            <td>Return the exit status of the action. The statuses can be:
+                                <ul>
+                                    <li>
+                                        <code>OK</code> indicating that the action worked.
+                                    </li>
+                                    <li><code>FAIL</code> indicating that the action failed because of the project was
+                                        not found.
+                                    </li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>id_project</code></td>
+                            <td>Returns the id of the project just updated.</td>
+                        </tr>
+                        <tr>
+                            <td><code>project_pass</code></td>
+                            <td>Returns the new pass of the project just updated.</td>
+                        </tr>
+                        <tr>
+                            <td><code>message</code></td>
+                            <td>Return the error message for the action if the status is <code>FAIL</code></td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>Errors</strong></p>
+                    <table class="tablestats" width="100%" border="0" cellspacing="0" cellpadding="0">
+
+                        <tbody>
+                        <tr>
+                            <th>status</th>
+                            <th>message</th>
+                        </tr>
+                        <tr>
+                            <td>FAIL</td>
+                            <td>Wrong id or pass</td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                            <pre class="literal-block">
+{
+    "status": "FAIL",
+    "message": "Wrong id or pass"
+}                                           </pre>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </dd>
+            </dl>
+
+            <a class="gototop" href="#top">Go to top</a>
+        </div>
+        <!-- END change Password Block -->
+
             <div class="block">
                     <a name="file-format"><h3 class="method-title">Supported file formats</h3></a>
                         
@@ -489,85 +659,85 @@
                             <table class="tablestats fileformat" width="100%" border="0" cellspacing="0" cellpadding="0">
                         
                                 <thead>
-                                <tr><th>Office</th>
-                                    <th>Web</th>
-                                    <th>Interchange Formats</th>
-                                    <th>Desktop Publishing</th>
-                                    <th>Localization</th>
+                                <tr><th width="40%">Office</th>
+                                    <th width="15%">Web</th>
+                                    <th width="15%">Interchange Formats</th>
+                                    <th width="15%">Desktop Publishing</th>
+                                    <th width="15%">Localization</th>
                                 </tr></thead>
                                 <tbody><tr>
                                     <td>
                                         <ul class="office">
-                                            <li>doc</li>
-                                            <li>dot</li>
-                                            <li>docx</li>
-                                            <li>dotx</li>
-                                            <li>docm</li>
-                                            <li>dotm</li>
-                                            <li>pdf</li>
-                                            <li>xls</li>
-                                            <li>xlt</li>
-                                            <li>xlsm</li>
-                                            <li>xlsx</li>
-                                            <li>xltx</li>
-                                            <li>pot</li>
-                                            <li>pps</li>
-                                            <li>ppt</li>
-                                            <li>potm</li>
-                                            <li>potx</li>
-                                            <li>ppsm</li>
-                                            <li>ppsx</li>
-                                            <li>pptm</li>
-                                            <li>pptx</li>
-                                            <li>odp</li>
-                                            <li>ods</li>
-                                            <li>odt</li>
-                                            <li>sxw</li>
-                                            <li>sxc</li>
-                                            <li>sxi</li>
-                                            <li>txt</li>
-                                            <li>csv</li>
-                                            <li>xml</li>
+                                            <li><span class="extdoc">doc</span></li>
+                                            <li><span class="extdoc">dot</span></li>
+                                            <li><span class="extdoc">docx</span></li>
+                                            <li><span class="extdoc">dotx</span></li>
+                                            <li><span class="extdoc">docm</span></li>
+                                            <li><span class="extdoc">dotm</span></li>
+                                            <li><span class="extdoc">odt</span></li>
+                                            <li><span class="extdoc">sxw</span></li>
+                                            <li><span class="exttxt">txt</span></li>
+                                            <li><span class="extpdf">pdf</span></li>
+                                            <li><span class="extppt">pot</span></li>
+                                            <li><span class="extppt">pps</span></li>
+                                            <li><span class="extppt">ppt</span></li>
+                                            <li><span class="extppt">potm</span></li>
+                                            <li><span class="extppt">potx</span></li>
+                                            <li><span class="extppt">ppsm</span></li>
+                                            <li><span class="extppt">ppsx</span></li>
+                                            <li><span class="extppt">pptm</span></li>
+                                            <li><span class="extppt">pptx</span></li>
+                                            <li><span class="extppt">odp</span></li>
+                                            <li><span class="extxls">ods</span></li>
+                                            <li><span class="extxls">sxc</span></li>
+                                            <li><span class="extxls">xls</span></li>
+                                            <li><span class="extxls">xlt</span></li>
+                                            <li><span class="extxls">xlsm</span></li>
+                                            <li><span class="extxls">xlsx</span></li>
+                                            <li><span class="extxls">xltx</span></li>
+                                            <li><span class="extxls">csv</span></li>
+                                            <li><span class="extxml">xml</span></li>
                                         </ul>
                                     </td>
                                     <td>
                                         <ul>
-                                            <li>htm</li>
-                                            <li>html</li>
-                                            <li>xhtml</li>
-                                            <li>xml</li>
+                                            <li><span class="exthtm">htm</span></li>
+                                            <li><span class="exthtm">html</span></li>
+                                            <li><span class="exthtm">xhtml</span></li>
+                                            <li><span class="extxml">xml</span></li>
                                         </ul>
                                     </td>
                                     <td>
                                         <ul>
-                                            <li>xliff</li>
-                                            <li>sdlxliff</li>
-                                            <li>ttx</li>
-                                            <li>itd</li>
-                                            <li>xlf</li>
+                                            <li><span class="extxif">xliff</span></li>
+                                            <li><span class="extxif">sdlxliff</span></li>
+                                            <li><span class="extttx">ttx</span></li>
+                                            <li><span class="extitd">itd</span></li>
+                                            <li><span class="extxlf">xlf</span></li>
+                                            <li><span class="exttmx">tmx</span></li>
                                         </ul>
                                     </td>
                                     <td>
                                         <ul>
-                                            <li>mif</li>
-                                            <li>inx</li>
-                                            <li>idml</li>
-                                            <li>icml</li>
-                                            <li>xtg</li>
-                                            <li>tag</li>
-                                            <li>xml</li>
-                                            <li>dita</li>
+                                            <li><span class="extmif">mif</span></li>
+                                            <li><span class="extidd">inx</span></li>
+                                            <li><span class="extidd">idml</span></li>
+                                            <li><span class="extidd">icml</span></li>
+                                            <li><span class="extqxp">xtg</span></li>
+                                            <li><span class="exttag">tag</span></li>
+                                            <li><span class="extxml">xml</span></li>
+                                            <li><span class="extdit">dita</span></li>
                                         </ul>
                                     </td>
                                     <td>
                                         <ul>
-                                            <li>properties</li>
-                                            <li>rc</li>
-                                            <li>resx</li>
-                                            <li>xml</li>
-                                            <li>dita</li>
-                                            <li>sgml</li>
-                                            <li>sgm</li>
+                                            <li><span class="extpro">properties</span></li>
+                                            <li><span class="extrcc">rc</span></li>
+                                            <li><span class="extres">resx</span></li>
+                                            <li><span class="extxml">xml</span></li>
+                                            <li><span class="extdit">dita</span></li>
+                                            <li><span class="extsgl">sgml</span></li>
+                                            <li><span class="extsgm">sgm</span></li>
                                         </ul>
                                     </td>
                                 </tr>

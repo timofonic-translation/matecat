@@ -69,7 +69,7 @@ class glossaryController extends ajaxController {
             $config[ 'id_user' ]     = $st[ 'id_translator' ];
             $config[ 'isGlossary' ]  = true;
             $config[ 'get_mt' ]      = null;
-            $config[ 'num_result' ]  = null;
+            $config[ 'num_result' ]  = 100; //do not want limit the results from glossary: set as a big number
 
             /**
              * For future reminder
@@ -100,7 +100,7 @@ class glossaryController extends ajaxController {
                     if( $this->automatic ){
                         $tmp_Result = array();
                         foreach( $TMS_RESULT as $k => $val ){
-                            if( ( $res = mb_stripos( $this->segment, $k ) ) === false ){
+                            if( ( $res = mb_stripos( $this->segment, preg_replace( '/[ \t\n\r\0\x0A\xA0]+$/u', '', $k ) ) ) === false ){
                                 unset( $TMS_RESULT[$k] );
                             } else {
                                 $tmp_Result[$res] = $k;
@@ -117,16 +117,22 @@ class glossaryController extends ajaxController {
 
                     break;
                 case 'set':
-                    if ( empty($st['id_translator']) ) {
+
+                    if ( $st[ 'id_tms' ] == 0 ) {
+                        throw new Exception( "Glossary is not available when the TM feature is disabled", -11 );
+                    }
+
+                    if ( empty( $st[ 'id_translator' ] ) ) {
                         $newUser                 = TMS::createMyMemoryKey( $this->id_job ); //throws exception
                         updateTranslatorJob( $this->id_job, $newUser );
                         $config[ 'id_user' ]     = $newUser->id;
                     }
+
                     $TMS_RESULT = $_TMS->set($config);
                     $set_code = $TMS_RESULT;
 
                     if ( $set_code ) {
-//                       Often the get method after a set is not in real time, so return the same values ( FAKE )
+//                        Often the get method after a set is not in real time, so return the same values ( FAKE )
 //                        $TMS_GET_RESULT = $_TMS->get($config)->get_glossary_matches_as_array();
 //                        $this->result['data']['matches'] = $TMS_GET_RESULT;
                         $this->result['data']['matches'] = array(
@@ -135,8 +141,8 @@ class glossaryController extends ajaxController {
                                         'segment'          => $config['segment'],
                                         'translation'      => $config['translation'],
                                         'last_update_date' => date_create()->format('Y-m-d H:i:m'),
-                                        'last_updated_by'  => $newUser->id,
-                                        'created_by'       => $newUser->id,
+                                        'last_updated_by'  => $st['id_translator'],
+                                        'created_by'       => $st['id_translator'],
                                         'target_note'      => $config['tnote'],
                                     )
                             )

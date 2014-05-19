@@ -21,7 +21,7 @@ class catController extends viewController {
 	private $source = "";
 	private $pname = "";
 	private $create_date = "";
-	private $filetype_handler = null;
+	private $project_status = 'NEW';
 	private $start_from = 0;
 	private $page = 0;
 	private $start_time = 0.00;
@@ -35,8 +35,10 @@ class catController extends viewController {
 	private $job_cancelled = false;
 
     private $firstSegmentOfFiles = '[]';
+    private $fileCounter = '[]';
 
     private $first_job_segment;
+    private $last_job_segment;
     private $last_opened_segment;
 
 	private $thisUrl;
@@ -113,54 +115,52 @@ class catController extends viewController {
             return;
         }
 
-		foreach ($data as $i => $seg) {
+		foreach ($data as $i => $prj) {
+
+            $this->project_status = $prj; // get one row values for the project are the same for every row
 
 			if (empty($this->pname)) {
-				$this->pname = $seg['pname'];
-				$this->downloadFileName = $seg['pname'] . ".zip"; // will be overwritten below in case of one file job
+				$this->pname = $prj['pname'];
+				$this->downloadFileName = $prj['pname'] . ".zip"; // will be overwritten below in case of one file job
 			}
 
 			if (empty($this->last_opened_segment)) {
-				$this->last_opened_segment = $seg['last_opened_segment'];
+				$this->last_opened_segment = $prj['last_opened_segment'];
 			}
 
-			if (empty($this->first_job_segment)) {
-//				$this->first_job_segment = @$seg['id_segment_start'];
-			}
-            
 			if (empty($this->cid)) {
-				$this->cid = $seg['cid'];
+				$this->cid = $prj['cid'];
 			}
 
 			if (empty($this->pid)) {
-				$this->pid = $seg['pid'];
+				$this->pid = $prj['pid'];
 			}
 
 			if (empty($this->tid)) {
-				$this->tid = $seg['tid'];
+				$this->tid = $prj['tid'];
 			}
 
 			if (empty($this->create_date)) {
-				$this->create_date = $seg['create_date'];
+				$this->create_date = $prj['create_date'];
 			}
 
 			if (empty($this->source_code)) {
-				$this->source_code = $seg['source'];
+				$this->source_code = $prj['source'];
 			}
 
 			if (empty($this->target_code)) {
-				$this->target_code = $seg['target'];
+				$this->target_code = $prj['target'];
 			}
 
 			if (empty($this->source)) {
-				$s = explode("-", $seg['source']);
+				$s = explode("-", $prj['source']);
 				$source = strtoupper($s[0]);
 				$this->source = $source;
 				$this->source_rtl= ($lang_handler->isRTL(strtolower($this->source)))? ' rtl-source' : '';
 			}
 
 			if (empty($this->target)) {
-				$t = explode("-", $seg['target']);
+				$t = explode("-", $prj['target']);
 				$target = strtoupper($t[0]);
 				$this->target = $target;
 				$this->target_rtl= ($lang_handler->isRTL(strtolower($this->target)))? ' rtl-target' : '';
@@ -168,15 +168,15 @@ class catController extends viewController {
 			//check if language belongs to supported right-to-left languages
 
 
-			if ($seg['status'] == 'archived') {
+			if ($prj['status'] == 'archived') {
 				$this->job_archived = true;
 			}
 
-			$id_file = $seg['id_file'];
+			$id_file = $prj['id_file'];
 
 
 			if (!isset($this->data["$id_file"])) {
-				$files_found[] = $seg['filename'];
+				$files_found[] = $prj['filename'];
 //				$file_stats = CatUtils::getStatsForFile($id_file);
 //
 //				$this->data["$id_file"]['jid'] = $seg['jid'];
@@ -193,31 +193,62 @@ class catController extends viewController {
 			}
 			//$this->filetype_handler = new filetype($seg['mime_type']);
 
+            $wStruct = new WordCount_Struct();
 
+            $wStruct->setIdJob( $this->jid );
+            $wStruct->setJobPassword( $this->password );
+            $wStruct->setNewWords( $prj['new_words'] );
+            $wStruct->setDraftWords( $prj['draft_words'] );
+            $wStruct->setTranslatedWords( $prj['translated_words'] );
+            $wStruct->setApprovedWords( $prj['approved_words'] );
+            $wStruct->setRejectedWords( $prj['rejected_words'] );
 
-			unset($seg['id_file']);
-			unset($seg['source']);
-			unset($seg['target']);
-			unset($seg['source_code']);
-			unset($seg['target_code']);
-			unset($seg['mime_type']);
-			unset($seg['filename']);
-			unset($seg['jid']);
-			unset($seg['pid']);
-			unset($seg['cid']);
-			unset($seg['tid']);
-			unset($seg['pname']);
-			unset($seg['create_date']);
+			unset($prj['id_file']);
+			unset($prj['source']);
+			unset($prj['target']);
+			unset($prj['source_code']);
+			unset($prj['target_code']);
+			unset($prj['mime_type']);
+			unset($prj['filename']);
+			unset($prj['jid']);
+			unset($prj['pid']);
+			unset($prj['cid']);
+			unset($prj['tid']);
+			unset($prj['pname']);
+			unset($prj['create_date']);
 //			unset($seg['id_segment_end']);
 //			unset($seg['id_segment_start']);
-			unset($seg['last_opened_segment']);
-		}
+			unset($prj['last_opened_segment']);
 
+            unset( $prj[ 'new_words' ] );
+            unset( $prj[ 'draft_words' ] );
+            unset( $prj[ 'translated_words' ] );
+            unset( $prj[ 'approved_words' ] );
+            unset( $prj[ 'rejected_words' ] );
+
+            //For projects created with No tm analysis enabled
+            if( $wStruct->getTotal() == 0 && ( $prj['status_analysis'] == Constants_ProjectStatus::STATUS_DONE ||  $prj['status_analysis'] == Constants_ProjectStatus::STATUS_NOT_TO_ANALYZE ) ){
+                $wCounter = new WordCount_Counter();
+                $wStruct = $wCounter->initializeJobWordCount( $this->jid, $this->password );
+                Log::doLog( "BackWard compatibility set Counter." );
+            }
+
+            $this->job_stats = CatUtils::getFastStatsForJob( $wStruct );
+
+//            Log::doLog( $this->job_stats );
+
+            //$this->job_stats = CatUtils::getStatsForJob( $this->jid, null, $this->password );
+
+        }
+
+        //TODO check and improve, this is not needed
 		if (empty($this->last_opened_segment)) {
 			$this->last_opened_segment = getFirstSegmentId($this->jid, $this->password);
 		}
 
-		$this->job_stats = CatUtils::getStatsForJob( $this->jid, null, $this->password );
+        $this->first_job_segment =$this->project_status['job_first_segment'];
+        $this->last_job_segment =$this->project_status['job_last_segment'];
+
 		if (count($files_found) == 1) {
 			$this->downloadFileName = $files_found[0];
 		}
@@ -225,9 +256,15 @@ class catController extends viewController {
         /**
          * get first segment of every file
          */
-         $this->firstSegmentOfFiles = json_encode( getFirstSegmentOfFilesInJob( $this->jid ) );
+        $fileInfo = getFirstSegmentOfFilesInJob( $this->jid );
+        $TotalPayable = array();
+        foreach( $fileInfo as $file ){
+            $TotalPayable[ $file['id_file'] ]['TOTAL_FORMATTED'] = $file['TOTAL_FORMATTED'];
+        }
+        $this->firstSegmentOfFiles = json_encode( $fileInfo );
+        $this->fileCounter         = json_encode( $TotalPayable );
 
-	}
+    }
 
 	public function setTemplateVars() {
 
@@ -237,12 +274,14 @@ class catController extends viewController {
             $this->template->source_code         = null;
             $this->template->target_code         = null;
             $this->template->firstSegmentOfFiles = null;
+            $this->template->fileCounter         = null;
         } else {
             $this->template->pid                 = $this->pid;
             $this->template->target              = $this->target;
             $this->template->source_code         = $this->source_code;
             $this->template->target_code         = $this->target_code;
             $this->template->firstSegmentOfFiles = $this->firstSegmentOfFiles;
+            $this->template->fileCounter         = $this->fileCounter;
         }
 
         $this->template->jid         = $this->jid;
@@ -256,14 +295,21 @@ class catController extends viewController {
         $this->template->target_rtl  = $this->target_rtl;
 
         $this->template->first_job_segment   = $this->first_job_segment;
+        $this->template->last_job_segment    = $this->last_job_segment;
         $this->template->last_opened_segment = $this->last_opened_segment;
         //$this->template->data                = $this->data;
+
+        $this->job_stats['STATUS_BAR_NO_DISPLAY'] = ( $this->project_status['status_analysis'] == Constants_ProjectStatus::STATUS_DONE ? '' : 'display:none;' );
+        $this->job_stats['ANALYSIS_COMPLETE']   = ( $this->project_status['status_analysis'] == Constants_ProjectStatus::STATUS_DONE ? true : false );
+
+//        Log::doLog( $this->job_stats );
 
         $this->template->job_stats = $this->job_stats;
 
         $end_time                               = microtime( true ) * 1000;
         $load_time                              = $end_time - $this->start_time;
         $this->template->load_time              = $load_time;
+        $this->template->tms_enabled            = var_export( (bool)$this->project_status['id_tms'], true );
         $this->template->time_to_edit_enabled   = INIT::$TIME_TO_EDIT_ENABLED;
         $this->template->build_number           = INIT::$BUILD_NUMBER;
         $this->template->downloadFileName       = $this->downloadFileName;
@@ -274,34 +320,46 @@ class catController extends viewController {
         $this->template->incomingUrl            = '/login?incomingUrl=' . $this->thisUrl;
         $this->template->warningPollingInterval = 1000 * ( INIT::$WARNING_POLLING_INTERVAL );
         $this->template->segmentQACheckInterval = 1000 * ( INIT::$SEGMENT_QA_CHECK_INTERVAL );
-		$this->template->filtered = $this->filter_enabled;
-		$this->template->filtered_class = ($this->filter_enabled) ? ' open' : '';
+        $this->template->filtered = $this->filter_enabled;
+        $this->template->filtered_class = ( $this->filter_enabled ) ? ' open' : '';
 
-        ( INIT::$VOLUME_ANALYSIS_ENABLED        ? $this->template->analysis_enabled = true : null );
+		( INIT::$VOLUME_ANALYSIS_ENABLED        ? $this->template->analysis_enabled = true : null );
 
-        if( array_key_exists( $this->target_code, CatUtils::$cjk ) ){
+		//check if it is a composite language, for cjk check that accepts only ISO 639 code
+        if ( strpos( $this->target_code, '-' ) !== false ) {
+            //pick only first part
+            $tmp_lang               = explode( '-', $this->target_code );
+            $target_code_no_country = $tmp_lang[ 0 ];
+            unset( $tmp_lang );
+        } else {
+            //not a RFC code, it's fine
+            $target_code_no_country = $this->target_code;
+        }
+
+        //check if cjk
+        if ( array_key_exists( $target_code_no_country, CatUtils::$cjk ) ) {
             $this->template->taglockEnabled = 0;
         }
 
         /*
          * Line Feed PlaceHolding System
          */
-        $this->template->brPlaceholdEnabled = $placeHoldingEnabled = true;
+		$this->template->brPlaceholdEnabled = $placeHoldingEnabled = true;
 
-        if( $placeHoldingEnabled ){
+		if( $placeHoldingEnabled ){
 
-            $this->template->lfPlaceholder        = CatUtils::lfPlaceholder;
-            $this->template->crPlaceholder        = CatUtils::crPlaceholder;
-            $this->template->crlfPlaceholder      = CatUtils::crlfPlaceholder;
-            $this->template->lfPlaceholderClass   = CatUtils::lfPlaceholderClass;
-            $this->template->crPlaceholderClass   = CatUtils::crPlaceholderClass;
-            $this->template->crlfPlaceholderClass = CatUtils::crlfPlaceholderClass;
-            $this->template->lfPlaceholderRegex   = CatUtils::lfPlaceholderRegex;
-            $this->template->crPlaceholderRegex   = CatUtils::crPlaceholderRegex;
-            $this->template->crlfPlaceholderRegex = CatUtils::crlfPlaceholderRegex;
+			$this->template->lfPlaceholder        = CatUtils::lfPlaceholder;
+			$this->template->crPlaceholder        = CatUtils::crPlaceholder;
+			$this->template->crlfPlaceholder      = CatUtils::crlfPlaceholder;
+			$this->template->lfPlaceholderClass   = CatUtils::lfPlaceholderClass;
+			$this->template->crPlaceholderClass   = CatUtils::crPlaceholderClass;
+			$this->template->crlfPlaceholderClass = CatUtils::crlfPlaceholderClass;
+			$this->template->lfPlaceholderRegex   = CatUtils::lfPlaceholderRegex;
+			$this->template->crPlaceholderRegex   = CatUtils::crPlaceholderRegex;
+			$this->template->crlfPlaceholderRegex = CatUtils::crlfPlaceholderRegex;
 
-        }
+		}
 
-    }
+	}
 
 }

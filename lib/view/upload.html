@@ -4,7 +4,7 @@
  * jQuery File Upload Plugin Demo 6.9.1
  * https://github.com/blueimp/jQuery-File-Upload
  *
- * Copyright 2010, Sebastian Tschan
+ * Copyright 2010, Sebastian Tschant
  * https://blueimp.net
  *
  * Licensed under the MIT license:
@@ -38,10 +38,12 @@
     <!--[if lt IE 9]>
     <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
 
-    <script src="${basepath}public/js/lib/jquery.js"></script>
-    <script src="${basepath}public/js/common.js"></script>
-    <script src="${basepath}public/js/upload.js"></script>
-    <script type='text/javascript' src="${basepath}public/js/logout.js?build=${build_number}"></script>
+<!--        <script src="${basepath}public/js/lib/jquery-1.11.0.min.js"></script>
+    <script src="${basepath}public/js/lib/jquery-migrate-1.2.1.js"></script> -->
+	<script src="${basepath}public/js/lib/jquery.js"></script>
+	<script src="${basepath}public/js/common.js"></script>
+	<script src="${basepath}public/js/upload.js"></script>
+	<script type='text/javascript' src="${basepath}public/js/logout.js?build=${build_number}"></script>
 
     <script type="text/javascript">
         var config = {
@@ -136,7 +138,7 @@
     <a href="#" id="multiple-link">Multiple languages?</a>
 </div>
 <div class="cl"></div>
-<a href="#" class="more">More options</a>
+<a href="#" class="more">Options</a>
 
 
 <div class="cl"></div>
@@ -170,7 +172,7 @@
 
     <div class="translate-box translate-checkbox">
         <span class="tms-checkbox" id="disable_tms_checkbox">
-            <label class="tms-label" for="disable_tms_engine">Disable TM Server</label>
+            <label class="tms-label" for="disable_tms_engine">Disable TM, Concordance and Glossary</label>
             <input type="checkbox" value="true" id="disable_tms_engine" name="no_tms_engine" />
         </span>
     </div>
@@ -181,6 +183,7 @@
 
 
 <div class="cl"></div>
+<p class="warning-message"> Error: the errmsg will appear here... </p>
 <p class="error-message"> Error: the errmsg will appear here... </p>
 
 <div class="cl"></div>
@@ -193,6 +196,7 @@
 
             <p tal:condition="true:conversion_enabled" class="file-drag">
                 <strong>Drag and drop</strong> your file here<br/>
+				<span class="min">You may also import your own translation memories (TMX)</span><br />
                 or</p>
 
             <p tal:condition="not:conversion_enabled" class="file-drag">
@@ -502,6 +506,7 @@
             <span class="extxml"></span>
             {% mimeok=1} %}
 			
+			
 			{% if (o.files[i].type == "text/html" || o.files[i].type == "application/xhtml+xml"  ) { %}
 					
             <span class="exthtm"></span>
@@ -555,6 +560,9 @@
             <span class="extpro"></span>
             {% mimeok=1} %}
 			
+			 {% if (/tmx/.test( o.files[i].name.split('.').pop() ) ) { %}
+            <span class="exttmx"></span>
+            {% mimeok=1} %}
 			
 				
 			
@@ -668,7 +676,7 @@
 
 
 <div class="modal supported-formats" data-type="view">
-    <div class="popup-outer"></div>
+    <div class="popup-outer closeClickingOutside"></div>
     <div class="popup">
         <a href="#" class="x-popup"></a>
 
@@ -722,6 +730,7 @@
         <nav>
             <ul>
                 <li><a tal:attributes="href string:${basepath}manage/?new=1">Manage</a></li>
+                <li><a tal:attributes="href string:${basepath}api/docs">API</a></li>
             </ul>
 
             <tal:block tal:condition="php: empty(logged_user)">

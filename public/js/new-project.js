@@ -1,7 +1,7 @@
  
 $(document).ready(function() {
 
-    $('#create_private_tm_btn').click(function (){
+    $('#create_private_tm_btn').click(function() {
         //prevent double click
         if($(this).hasClass('disabled')) return false;
         //show spinner
@@ -9,21 +9,26 @@ $(document).ready(function() {
         //disable button
         $(this).addClass('disabled');
         $(this).attr('disabled','');
-        //call API
-        $.get("http://mymemory.translated.net/API/createranduser",function(data){
-            //parse to appropriate type
-            //this is to avoid a curious bug in Chrome, that causes 'data' to be already an Object and not a json string
-            if(typeof data == 'string'){
-                data=jQuery.parseJSON(data);
-            }
-            //put value into input field
-            $('#private-tm-key').val(data.key);
-            $('#private-tm-user').val(data.id);
-            $('#private-tm-pass').val(data.pass);
-            //hide spinner
-            $('#get-new-tm-spinner').hide();
-            return false;	
-        })
+		if(typeof $(this).attr('data-key') == 'undefined') {
+			//call API
+			$.get("http://mymemory.translated.net/api/createranduser",function(data){
+				//parse to appropriate type
+				//this is to avoid a curious bug in Chrome, that causes 'data' to be already an Object and not a json string
+				if(typeof data == 'string'){
+					data=jQuery.parseJSON(data);
+				}
+				//put value into input field
+				$('#private-tm-key').val(data.key);
+				$('#private-tm-user').val(data.id);
+				$('#private-tm-pass').val(data.pass);
+				$('#create_private_tm_btn').attr('data-key', data.key);
+				//hide spinner
+				$('#get-new-tm-spinner').hide();
+				return false;	
+			})			
+		} else {
+			$('#private-tm-key').val($(this).attr('data-key'));
+		}
     })
 
     $(".more").click(function(e){
@@ -38,8 +43,21 @@ $(document).ready(function() {
         if (UI.conversionsAreToRestart()) {
             APP.confirm({msg: 'Source language changed. The files must be reimported.', callback: 'confirmRestartConversions'});
         }
+        if( UI.checkTMXLangFailure() ){
+            UI.delTMXLangFailure();
+        }
     });
-         
+
+    $("#target-lang").change(function(e) {
+        $('.popup-languages li.on').each(function(){
+            $(this).removeClass('on').find('input').removeAttr('checked');
+        });
+        $('.translate-box.target h2 .extra').remove();
+        if( UI.checkTMXLangFailure() ){
+            UI.delTMXLangFailure();
+        }
+    });
+
     $("input.uploadbtn").click(function(e) {
         $('body').addClass('creating');
         var files = '';
@@ -66,20 +84,31 @@ $(document).ready(function() {
             },
             success: function(d){
                 if( typeof d.errors != 'undefined' ) {
+
                     $('.error-message').text('');
+
                     $.each(d.errors, function() {
+
+                        if( this.code == -16 ){
+                            UI.addTMXLangFailure();
+                        }
+
                         $('.error-message').append( '<div>' + this.message + '<br /></div>' ).show();
                     });
+
+					$('.uploadbtn').attr('value', 'Analyze');
                     $('body').removeClass('creating');
+
 //                    var btnTxt = (config.analysisEnabled)? 'Analyze' : 'Translate';
 //                    $('.uploadbtn').attr('value',btnTxt).removeClass('disabled').removeAttr('disabled');
+
                 } else {
                     //							$.cookie('upload_session', null);
                     if(config.analysisEnabled) {
 
                         if( d.status == 'EMPTY' ){
                             $('body').removeClass('creating');
-                            APP.alert({msg: 'No text to translate in the file(s). Perhaps it is a scanned file or an image?'});
+                            APP.alert({msg: 'No text to translate in the file(s).<br />Perhaps it is a scanned file or an image?'});
                             $('.uploadbtn').attr('value','Analyze').removeAttr('disabled').removeClass('disabled');
                         } else {
                             location.href = config.hostpath + config.basepath + 'analyze/' + d.project_name + '/' + d.id_project + '-' + d.ppassword;
@@ -87,7 +116,7 @@ $(document).ready(function() {
 
                     } else {
 
-                        if( d.target_language.length > 1 ){ //if multiple language selected show a job list
+                        if( Object.keys( d.target_language ).length > 1 ){ //if multiple language selected show a job list
                             d.files = [];
                             d.trgLangHumanReadable = $('#target-lang option:selected').text().split(',');
                             d.srcLangHumanReadable = $('#source-lang option:selected').text();
@@ -168,23 +197,28 @@ $(document).ready(function() {
         $("div.grayed").hide();
     });
 
-    $("#target-lang").change(function(e) {          
-        $('.popup-languages li.on').each(function(){
-			$(this).removeClass('on').find('input').removeAttr('checked');
-		});
-		$('.translate-box.target h2 .extra').remove();
+	$("#disable_tms_engine").change(function(e){
+		if(this.checked){
+			$("input[id^='private-tm-']").prop("disabled", true);
+			$("#create_private_tm_btn").addClass("disabled", true);
+		} else {
+			if(!$('#create_private_tm_btn[data-key]').length) {
+				$("input[id^='private-tm-']").prop("disabled", false);
+				$("#create_private_tm_btn").removeClass("disabled");
+			}
+		}
+	});
+ 
+	$("#private-tm-key").on('keyup', function(e) {
+		if($(this).val() == '') {
+			$('#create_private_tm_btn').removeClass('disabled');
+			$('#create_private_tm_btn').removeAttr('disabled');
+		} else {
+			$('#create_private_tm_btn').addClass('disabled');
+			$('#create_private_tm_btn').attr('disabled','disabled');			
+		};
     });
-
-    $("#disable_tms_engine").change(function(e){
-        if(this.checked){
-            $("input[id^='private-tm-']").prop("disabled", true);
-            $("#create_private_tm_btn").addClass("disabled", true);
-        } else {
-            $("input[id^='private-tm-']").prop("disabled", false);
-            $("#create_private_tm_btn").removeClass("disabled");
-        }
-    });
-
+	
     $("input, select").change(function(e) {          
         $('.error-message').hide();
     //		        if($('.upload-table tr').length) $('.uploadbtn').removeAttr('disabled').removeClass('disabled');
