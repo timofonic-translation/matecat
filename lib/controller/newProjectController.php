@@ -12,8 +12,8 @@ class newProjectController extends viewController {
 	private $tms_engines;
 	private $lang_handler;
 
-    private $sourceLangArray=array();
-    private $targetLangArray=array();
+	private $sourceLangArray=array();
+	private $targetLangArray=array();
 
 	public function __construct() {
 
@@ -188,7 +188,16 @@ class newProjectController extends viewController {
 
 	public function setTemplateVars() {
 
-        $this->template->languages          = $this->lang_handler->getEnabledLanguages( 'en' );
+        $target_languages = $this->lang_handler->getEnabledLanguages( 'en' );
+        foreach ( $target_languages as $k => $v ) {
+            //if (in_array($v['code'],array('ko-KR', 'zh-CN','zh-TW','ja-JP'))){
+            if ( in_array( $v[ 'code' ], array( 'ja-JP' ) ) ) {
+                unset ( $target_languages[ $k ] );
+            }
+        }
+        $this->template->target_languages = $target_languages;
+        $this->template->source_languages = $this->lang_handler->getEnabledLanguages( 'en' );
+
         $this->template->upload_session_id  = $this->guid;
         $this->template->mt_engines         = $this->mt_engines;
         $this->template->tms_engines        = $this->tms_engines;

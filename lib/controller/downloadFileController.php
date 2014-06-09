@@ -6,7 +6,7 @@ include_once INIT::$UTILS_ROOT."/CatUtils.php";
 include_once INIT::$UTILS_ROOT."/FileFormatConverter.php";
 include_once(INIT::$UTILS_ROOT.'/XliffSAXTranslationReplacer.class.php');
 include_once(INIT::$UTILS_ROOT.'/DetectProprietaryXliff.php');
-
+//include_once INIT::$UTILS_ROOT . "/langs/languages.class.php";
 
 class downloadFileController extends downloadController {
 
@@ -14,6 +14,8 @@ class downloadFileController extends downloadController {
     private $password;
     private $fname;
     private $download_type;
+
+    protected $JobInfo;
 
     protected $downloadToken;
 
@@ -54,11 +56,30 @@ class downloadFileController extends downloadController {
         $debug=array();
         $debug['total'][]=time();
 
+        //get job language and data
+        //Fixed Bug: need a specific job, because we need The target Language
+        //Removed from within the foreach cycle, the job is always the same....
+        $jobData = $this->JobInfo = getJobData( $this->id_job, $this->password );
+
+        $pCheck = new AjaxPasswordCheck();
+        //check for Password correctness
+        if ( empty( $jobData ) || !$pCheck->grantJobAccessByJobData( $jobData, $this->password ) ) {
+            $msg = "Error : wrong password provided for download \n\n " .  var_export( $_POST ,true )."\n";
+            Log::doLog( $msg );
+            Utils::sendErrMailReport( $msg );
+            return null;
+        }
+
         $debug['get_file'][]=time();
-        $files_job = getFilesForJob($this->id_job, $this->id_file);
+        $files_job = getFilesForJob( $this->id_job, $this->id_file );
         $debug['get_file'][]=time();
         $nonew = 0;
         $output_content = array();
+
+        //get job language and data
+        //Fixed Bug: need a specific job, because we need The target Language
+        //Removed from within the foreach cycle, the job is always the same....
+        $jobData = $this->JobInfo = getJobData( $this->id_job, $this->password );
 
         /*
         the procedure is now as follows:
@@ -96,10 +117,6 @@ class downloadFileController extends downloadController {
             $debug['get_segments'][]=time();
             $data = getSegmentsDownload($this->id_job, $this->password, $id_file, $nonew);
 
-            //get job language and data
-            //Fixed Bug: need a specific job, because we need The target Language
-            $jobData = getJobData( $this->id_job, $this->password );
-
             $debug['get_segments'][]=time();
             //create a secondary indexing mechanism on segments' array; this will be useful
             //prepend a string so non-trans unit id ( ex: numerical ) are not overwritten
@@ -108,8 +125,9 @@ class downloadFileController extends downloadController {
             }
             $transunit_translation = "";
             $debug['replace'][] = time();
+
             //instatiate parser
-            $xsp = new XliffSAXTranslationReplacer( $path, $data, $jobData['target'] );
+            $xsp = new XliffSAXTranslationReplacer( $path, $data, Languages::getInstance()->getLangRegionCode($jobData['target']) );
             //run parsing
             $xsp->replaceTranslation();
             unset($xsp);
