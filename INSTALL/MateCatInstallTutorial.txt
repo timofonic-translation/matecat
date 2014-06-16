@@ -1,0 +1,371 @@
+﻿MateCat Install Tutorial
+
+
+Overview
+Hardware requirements
+Setup on different platforms
+Windows and Mac
+Linux
+Configuring the environment from scratch
+Install Apache
+Install MySQL
+Install PHP5 core and additional packages
+Install screen
+Customizing components
+Enable Additional Modules for Apache
+Tune PHP configuration
+Installing Matecat
+Install git and clone  the  repository
+Initialize the database
+Create the virtualhost
+Important notice for Apache 2.4.x users
+Add local host name (optional)
+Customize MateCat configuration
+Configure database address
+Configure memcache location
+Enable Apache access to the directory
+Turning on the analysis daemon
+Enabling Google+ login
+
+
+Overview
+--------
+MateCat is a client-server web application. 
+Most of the interaction runs in the user browser (client), while all calculation along with user data permanently resides on the server side (server).
+
+
+To run MateCat you need:
+1. Google Chrome of Mozilla Firefox browser
+2. A machine with a few GB of RAM and Apache, PHP, MySQL
+
+
+This guide will focus on preparing the environment for the components that run server side.
+
+
+Hardware requirements
+---------------------
+To manage 50M words per year of translation capacity, you will need 1 server with:
+* Storage: 1TB
+* CPU: 6 core x 2.5 Ghz
+* RAM: 32GB
+
+
+If you need to manage up to 200M words per year, you can do it using 4TB of storage, 12 CPU core, and 64GB of RAM and placing the MySQL database on a separate machine (easy to do with the MateCat config file).
+For handling more than 200M words per year you will need to add a load balancer in front of the web servers and databases. Databases will need a master-master replica schema. This will require an experienced LAMP and scalability engineer. 
+ 
+If you just want to test MateCat on a few million words you will need 1 server with:
+* Storage: 50GB
+* CPU: 2 core x 2.5 Ghz
+* RAM: 4GB
+
+
+Setup on different platforms
+----------------------------
+MateCat requires Apache, MySQL and PHP and runs best on Linux, even though it can run on Windows and Mac with some more work. This guide will focus solely on Linux setup.
+
+Windows and Mac
+---------------
+If you want to install MateCat on Windows or Mac we suggest using a VirtualBox virtual machine with Linux onboard.
+
+VirtualBox can be downloaded for free at:
+https://www.virtualbox.org/wiki/Downloads
+
+
+Linux
+-----
+Mandatory dependencies are
+* Apache2 Web Server >=2.2.x, with following modules enabled:
+   * htaccess 
+   * rewrite
+   * filter
+   * deflate
+   * headers
+* PHP >=5.2, with following extensions enabled:
+   * php5-mysql[1]
+   * libapache2-mod-php5[2]
+   * php5-curl
+   * php5-memcache (not mandatory, but recommended)
+   * php5-json[3]
+* MySQL >=5.1
+* git >1.5
+
+
+This guide will assume you are on a Debian based Linux distribution (Debian or Ubuntu).
+
+If your server already meets these dependencies, please jump straight to Customizing components section.
+
+Otherwise the section that follows, Configuring the environment from scratch, will guide you to a ready to work environment.
+
+
+Configuring the environment from scratch
+----------------------------------------
+The setup requires root access privileges.
+
+Install Apache
+--------------
+sudo apt-get install apache2↵
+
+Install MySQL
+-------------
+sudo sudo apt-get install mysql-server mysql-client↵ 
+
+The installation process will prompt a few times for a new root password access for MySQL. It’s fine leaving it blank; otherwise, please ensure you type the same every time.
+
+You can test the reachability of the database by issuing at a terminal:
+
+mysql -u root -p↵
+
+If you specified a password during MySQL setup, type it when prompted; else, just hit Return. 
+If everything went fine, you should see the greeting message and the shell prompt:
+
+mysql>
+
+Install PHP5 core and additional packages
+-----------------------------------------
+sudo apt-get install php5 php5-mysql libapache2-mod-php5 php5-curl php5-memcache php5-json↵
+
+Install screen utility
+----------------------
+sudo apt-get install screen
+
+
+Customizing components 
+----------------------
+Enable Additional Modules for Apache
+------------------------------------
+Apache web server needs to be fine tuned for MateCat to work properly. Switch to Apache directory with 
+
+
+cd /etc/apache2↵
+
+
+and enter these commands to enable required Apache submodules 
+
+
+sudo a2enmod rewrite filter deflate headers expires↵
+sudo apache2ctl restart↵
+
+
+Last command is mandatory for changes to take effect.
+
+
+If you see, upon issuing sudo apache2ctl restart, the following warning:
+
+
+Could not reliably determine the server's fully qualified domain name, using 127.0.1.1 for ServerName
+
+
+do not worry, it’s not important.
+
+
+Tune PHP configuration
+----------------------
+Open PHP configuration file for Apache by typing:
+
+
+sudo gedit /etc/php5/apache2/php.ini↵
+
+
+find and set the following directives to these values:
+
+
+memory_limit = 1024M
+post_max_size = 200M
+upload_max_filesize = 200M
+short_open_tag = On
+
+
+As usual, restart Apache for changes to take effect:
+
+
+sudo apache2ctl restart↵
+
+
+Do the above to the command line configuration too (for the analysis daemons):
+
+
+sudo gedit /etc/php5/cli/php.ini↵
+
+
+and, addittionally, disable the disable_functions directive.
+
+
+Installing Matecat
+------------------
+This section assumes you’ll install Matecat under the home of user matecat (/home/matecat).
+
+Install git and clone  the  repository
+--------------------------------------
+If you already have GIT, skip this section. Otherwise, install GIT by typing:
+
+
+sudo apt-get install git↵
+
+
+Then clone the repository in your directory of choice by typing:
+
+
+cd↵
+git clone git://git.assembla.com/matecat_source.git cattool↵
+
+
+The above will create the directory cattool and will download all MateCat codebase in it.
+
+Initialize the database
+-----------------------
+Navigate to the configuration directory:
+
+
+cd ~/cattool/lib/model↵
+
+
+and send the database template to your MySQL instance with the following command (type the root password if prompted)
+
+
+mysql -u root -p < matecat.sql↵
+
+Create the virtualhost
+----------------------
+Navigate to the directory
+
+
+cd ~/cattool/INSTALL↵
+
+
+Open in an editor the file matecat.conf.sample 
+
+
+gedit matecat-vhost.conf.sample↵
+
+
+and substitute the string @@@path@@@ with the fullpath of the cattool folder previously created via the clone action (in this guide it’s assumed to be /home/matecat/cattool).
+
+
+Save the file modified as matecat.conf (try not to overwrite the sample) and enable the web application in Apache with the following commands:
+
+
+sudo cp matecat.conf /etc/apache2/sites-available↵
+cd /etc/apache2/↵
+sudo a2ensite matecat.conf↵
+sudo apache2ctl restart↵
+
+Important notice for Apache 2.4.x users
+-----------------------------------------
+Please replace in matecat.conf.sample configuration the directives:
+
+
+Order allow,deny
+Allow from all
+
+
+with the following:
+
+
+Require all granted
+
+Add local host name (optional)
+------------------------------
+If you want to use Matecat locally for evaluation purposes, it would be handy to have a local domain name. This step is absolutely not mandatory if Matecat is the only web application you are installing on the server; in the latter case you can use Matecat by just typing 127.0.0.1 in the browser.
+Please note that Google+ login is not possible with local domains.
+To create a local domain, open the hosts file with:
+
+
+sudo gedit /etc/hosts↵
+
+
+and append the following to the file:
+
+
+127.0.0.1 matecat.local
+
+
+Customize MateCat configuration
+-------------------------------
+We are nearly there!
+Go to configuration subdir 
+
+
+cd ~/cattool/inc↵
+
+
+and create your config file from sample template:
+
+
+cp config.inc.sample.php config.inc.php↵
+
+Configure database address
+--------------------------
+If your database resides on another machine, edit the newly created config.inc.php file by changing the directive:
+
+
+self::$DB_SERVER = "localhost"  
+
+
+to 
+
+
+self::$DB_SERVER = "<your_db_server_uri>"
+
+Configure memcache location
+---------------------------
+For a boost of performance, you can enable fast Memcache counters by enabling the following directive:
+
+
+self::$MEMCACHE_SERVERS = array( /* "localhost:11211" => 1 */ );
+
+
+If memcache resides on same machine, leave localhost. Otherwise, put the right URL in place.
+
+Enable Apache access to the directory
+-------------------------------------
+Finally, ensure that Apache has write permissions by transferring the ownership:
+
+
+sudo chown :www-data ~/cattool↵
+
+
+This is necessary to allow Matecat creating the storage subdirectory, where uploaded files, logs and temporary files are stored. Analysis daemons write their logs here, also.
+
+
+Turning on the analysis daemon
+------------------------------
+A killer feature of Matecat is the volume analysis integrated into the could translation memory MyMemory. To enable the analysis:
+1. ensure that self::$VOLUME_ANALYSIS_ENABLED is set to true
+2. change directory to ~/matecat/cattool/daemons
+3. type the following command: sudo ./restartAnalysis.sh↵
+
+
+Enabling Google+ login
+----------------------
+Matecat uses Google+ login as authentication mechanism. You need a Google account and a public reachable domain (i.e., www.example.com) to enable it.
+If you don't have a client id and client secret, please visit Google Developers Console and follow these instructions:
+1. click on "Create Project" and specify a project name
+2. select “APIs & auth” on left sidebar
+3. scroll down the list to "Google+ API" and switch the status of ON
+4. go back to left sidebar and, under "APIs & auth" menu, select "Credentials"
+5. click on "Create new client ID" buttonu
+6. under APPLICATION TYPE, select "Web application" option
+7. under AUTHORIZED JAVASCRIPT ORIGINS, insert the domain MateCat will be accessed from
+8. under REDIRECT URIs, insert "http://<domain>/oauth/response" , where <domain> is the domain that you specified in the previous step
+9. click on "Create client ID". You’ve just a client ID and a client secret
+10. Finally, edit the file cattool/inc/oauth_config.ini.sample with the right parameters obtained in the previous step of this guide:
+   1. OAUTH_CLIENT_ID with your client ID
+   2. OAUTH_CLIENT_SECRET with your client secret
+   3. OAUTH_CLIENT_APP_NAME with your custom app name,or leave Matecat
+1. save and rename to the file to oauth_config.ini
+
+
+
+
+
+
+That’s all. 
+
+
+Now type http://matecat.local (or 127.0.0.1 if you didn’t create any local domain) in Chrome or Firefox and enjoy your fresh install.
+
+
+________________
+[1] The php5-mysql package is required for PHP >=5.4, which deprecated mysql_* functions. Older version natively support mysql_* functions.
+[2] This will trigger mpm-prefork module for Apache, since mpm-worker is not supported by PHP
+[3] The php5-json package is required for PHP >=5.5
