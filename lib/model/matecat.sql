@@ -99,7 +99,7 @@ CREATE TABLE `engines` (
   `active` tinyint(4) NOT NULL DEFAULT '1',
   PRIMARY KEY (`id`),
   KEY `type` (`type`),
-  KEY `active_idx` (`active`) USING BTREE,
+  KEY `active_idx` (`active`) USING BTREE
 ) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
