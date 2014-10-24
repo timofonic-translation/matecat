@@ -48,7 +48,7 @@ abstract class viewController extends controller {
      */
     private function getBrowser() {
         $u_agent  = $_SERVER[ 'HTTP_USER_AGENT' ];
-
+log::doLog ("bname uagent " . $_SERVER[ 'HTTP_USER_AGENT' ]);
 	    $bname    = 'Unknown';
         $platform = 'Unknown';
         $version  = "";
@@ -63,32 +63,34 @@ abstract class viewController extends controller {
         }
 
         // Next get the name of the useragent yes seperately and for good reason
-        if ( preg_match( '/MSIE/i', $u_agent ) && !preg_match( '/Opera/i', $u_agent ) ) {
-            $bname = 'Internet Explorer';
+        if ( ( (preg_match( '/MSIE/i', $u_agent)) or  (preg_match( '/Trident/i', $u_agent))  ) && !preg_match( '/Opera/i', $u_agent ) ) {
+	    $bname = 'Internet Explorer';
             $ub    = "MSIE";
         } elseif ( preg_match( '/Firefox/i', $u_agent ) ) {
             $bname = 'Mozilla Firefox';
             $ub    = "Firefox";
-        } elseif ( preg_match( '/Chrome/i', $u_agent ) ) {
+        } elseif ( preg_match( '/Chrome/i', $u_agent ) and !preg_match( '/OPR/i', $u_agent ) ) {
             $bname = 'Google Chrome';
             $ub    = "Chrome";
-        } elseif ( preg_match( '/Safari/i', $u_agent ) ) {
-            $bname = 'Apple Safari';
-            $ub    = "Safari";
-	 } elseif ( preg_match( '/AppleWebKit/i', $u_agent ) ) {
-            $bname = 'Apple Safari';
-            $ub    = "Safari";
-        } elseif ( preg_match( '/Opera/i', $u_agent ) ) {
+        } elseif ( preg_match( '/Opera/i', $u_agent ) or preg_match( '/OPR/i', $u_agent ) ) {
             $bname = 'Opera';
             $ub    = "Opera";
+        } elseif ( preg_match( '/Safari/i', $u_agent ) ) {
+            $bname = 'Apple Safari';
+	        $ub    = "Safari";
+	} elseif ( preg_match( '/AppleWebKit/i', $u_agent ) ) {
+	        $bname = 'Apple Safari';
+	        $ub    = "Safari";
         } elseif ( preg_match( '/Netscape/i', $u_agent ) ) {
             $bname = 'Netscape';
             $ub    = "Netscape";
+        } elseif ( preg_match( '/Mozilla/i', $u_agent ) ) {
+            $bname = 'Mozilla Generic';
+            $ub    = "Mozillageneric";
         } else {
             $bname = 'Unknown';
             $ub    = "Unknown";
         }
-
         // finally get the correct version number
         $known   = array( 'Version', $ub, 'other' );
         $pattern = '#(?<browser>' . join( '|', $known ) .
@@ -132,6 +134,14 @@ abstract class viewController extends controller {
      * @param bool $isAuthRequired
      */
     public function __construct( $isAuthRequired = false ) {
+
+	    if( !parent::isRightVersion() ) {
+		    header("Location: " . INIT::$HTTPHOST . INIT::$BASEURL . "badConfiguration" , true, 303);
+		    exit;
+	    }
+
+        //SESSION ENABLED
+        parent::sessionStart();
         parent::__construct();
 
         //load Template Engine
@@ -212,13 +222,28 @@ abstract class viewController extends controller {
         $browser_info = $this->getBrowser();
         $browser_name = strtolower( $browser_info[ 'name' ] );
 
+	log::doLog ("bname $browser_name");
+
+/*        if (  ($browser_name=="internet explorer" or $browser_name=="mozilla firefox")  and  $_SERVER[ 'REQUEST_URI' ]=="/" ) {
+                return -2;
+         }
+*/
         foreach ( INIT::$ENABLED_BROWSERS as $enabled_browser ) {
             if ( stripos( $browser_name, $enabled_browser ) !== false ) {
-                return true;
+		return 1;
             }
         }
 
-        return false;
+        foreach ( INIT::$UNTESTED_BROWSERS as $untested_browser ) {
+            if ( stripos( $browser_name, $untested_browser ) !== false ) {
+                return -1;
+            }
+        }
+
+	//unsupported browsers: hack for home page
+        if ($_SERVER[ 'REQUEST_URI' ]=="/") return -2;
+
+        return 0;
     }
 
     /**

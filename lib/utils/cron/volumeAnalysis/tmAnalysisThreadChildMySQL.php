@@ -103,8 +103,16 @@ while (1) {
     $config[ 'segment' ]       = $text;
     $config[ 'source_lang' ]   = $source;
     $config[ 'target_lang' ]   = $target;
-    $config[ 'email' ]         = "demo@matecat.com";
-    $config[ 'id_user' ]       = $id_translator;
+    $config[ 'email' ]         = "tmanalysis@matecat.com";
+
+//    $config[ 'id_user' ]       = $id_translator;
+    $tm_keys = TmKeyManagement_TmKeyManagement::getJobTmKeys($segment[ 'tm_keys' ], 'r', 'tm' );
+    if ( is_array( $tm_keys ) && !empty( $tm_keys ) ) {
+        foreach ( $tm_keys as $tm_key ) {
+            $config[ 'id_user' ][ ] = $tm_key->key;
+        }
+    }
+    
     $config[ 'num_result' ]    = 3;
 
     $id_mt_engine    = $segment[ 'id_mt_engine' ];
@@ -365,4 +373,3 @@ function compareScore($a, $b) {
     return ( floatval($a['match']) < floatval($b['match']) ? 1 : -1); //SORT DESC !!!!!!! INVERT MINUS SIGN
     //this is necessary since usort sorts is ascending order, thus inverting the ranking
 }
-?>

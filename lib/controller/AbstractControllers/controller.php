@@ -48,6 +48,21 @@ abstract class controller {
 
     }
 
+	/**
+	 *
+	 * @return bool true if version is up to date, false otherwise
+	 */
+
+	public static function isRightVersion(){
+		$version_config = parse_ini_file(INIT::$ROOT."/inc/version.ini");
+		$version = $version_config['version'];
+
+//		Log::doLog("Same version number? ".($version == INIT::$BUILD_NUMBER));
+
+		return $version == INIT::$BUILD_NUMBER;
+
+	}
+
     /**
      * When Called it perform the controller action to retrieve/manipulate data
      *
@@ -110,6 +125,20 @@ abstract class controller {
         $ret = null;
         $ret = isset($_GET[$varname]) ? $_GET[$varname] : (isset($_POST[$varname]) ? $_POST[$varname] : null);
         return $ret;
+    }
+
+    public function sessionStart(){
+        INIT::sessionStart();
+    }
+
+    /**
+     * Explicitly disable sessions for ajax call
+     *
+     * Sessions enabled on INIT Class
+     *
+     */
+    public function disableSessions(){
+        INIT::sessionClose();
     }
 
 }

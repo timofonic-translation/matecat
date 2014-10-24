@@ -19,11 +19,15 @@
     <!--[if IE]>
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><![endif]-->
     <meta charset="utf-8"/>
-    <title tal:condition="true:conversion_enabled">Translate a file with Matecat</title>
-    <title tal:condition="not:conversion_enabled">Translate an XLIFF file with Matecat</title>
+    <title tal:condition="true:conversion_enabled">Translate a file with MateCat</title>
+    <title tal:condition="not:conversion_enabled">Translate an XLIFF file with MateCat</title>
 
-    <meta name="description" content="Matecat allows you to get more matches than any other CAT tool."/>
+    <meta name="description" content="Matecat is a free, web-based open source software that gives you more matches than any other CAT tool"/>
     <meta name="viewport" content="width=device-width"/>
+    <meta property="og:title" content="Translate a file with MateCat" />
+    <meta property="og:description" content="Matecat is a free, web-based open source software that gives you more matches than any other CAT tool. Use it now!" />
+    <meta property="og:url" content="http://www.matecat.com" />
+    <meta property="og:image" content="http://www.matecat.com/public/img/fbimg.jpg" />
     <!-- jQuery UI styles -->
     <!--
     <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/base/jquery-ui.css" id="theme"/>
@@ -31,19 +35,23 @@
 
 
     <link href="${basepath}public/css/common.css?build=${build_number}" rel="stylesheet" type="text/css"/>
-    <link rel="stylesheet" href="${basepath}public/css/upload.css?build=${build_number}"/>
-    <link rel="stylesheet" href="${basepath}public/js/lib/colorbox/colorbox.css?build=${build_number}"/>
 
+    <link rel="stylesheet" href="${basepath}public/css/upload.css?build=${build_number}"/>
+    <link rel="stylesheet" href="${basepath}public/css/popup.css?build=${build_number}"/>
+    <link rel="stylesheet" href="${basepath}public/js/lib/colorbox/colorbox.css?build=${build_number}"/>
+    
     <!-- Shim to make HTML5 elements usable in older Internet Explorer versions -->
     <!--[if lt IE 9]>
-    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
-
-<!--        <script src="${basepath}public/js/lib/jquery-1.11.0.min.js"></script>
-    <script src="${basepath}public/js/lib/jquery-migrate-1.2.1.js"></script> -->
-	<script src="${basepath}public/js/lib/jquery.js"></script>
-	<script src="${basepath}public/js/common.js"></script>
-	<script src="${basepath}public/js/upload.js"></script>
-	<script type='text/javascript' src="${basepath}public/js/logout.js?build=${build_number}"></script>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    
+    <!--        <script src="${basepath}public/js/lib/jquery-1.11.0.min.js"></script>
+        <script src="${basepath}public/js/lib/jquery-migrate-1.2.1.js"></script> -->
+    <script src="${basepath}public/js/lib/jquery.js"></script>
+    <script src="${basepath}public/js/common.js"></script>
+    <script src="${basepath}public/js/upload.js"></script>
+    <script src="${basepath}public/js/login.js"></script>
+    <script type='text/javascript' src="${basepath}public/js/logout.js?build=${build_number}"></script>
 
     <script type="text/javascript">
         var config = {
@@ -63,21 +71,63 @@
 <body tal:condition="not:supportedBrowser">
 <div metal:use-macro="unsupported_browser.html/unsupported"/>
 </body>
-<body tal:condition="supportedBrowser" class="started">
+
+<body tal:condition="php:supportedBrowser EQ -2">
+<div metal:use-macro="unsupported_browser.html/indexie"/>
+</body>
+
+<body tal:condition="php:supportedBrowser EQ 1" class="started">
 
 <header>
     <div class="wrapper">
         <a href="${basepath}" class="logo"></a>
+        <ul class="pull-right" id="menu-site">
+            <li><a href="/features/">Features</a></li>
+            <li><a href="/about/">About</a></li>
+            <li><a href="/open-source/">Open source</a></li>
+            <li><a href="/release-notes/">Release Notes</a></li>
+            <li><a href="/support">Support</a></li>
+        </ul>
+
     </div>
     <div class="cl"></div>
 
 </header>
-<div class="wrapper-upload">
+<div class="hide learnmore">
+    <span class="open-more pull-right">✕</span>
+    <h1>Post-editing and outsourcing made easy</h1>
+    
+    <div class="col-3">
+        <h2>State-of-the-art MT <br />and public TMs</h2>
+        <p>Translation and post-editing <br />in 80 languages with zero <br/>start-up time</p>
+        <img src="/public/img/box1.jpg" />
+
+    </div>
+    <div class="col-3">
+        <h2>Outsource your extra <br/>projects in one click</h2>
+        <p>Take on any projects,<br/>even in languages<br/>that you do not cover yourself</p>
+        <img src="/public/img/box2.jpg" />
+
+    </div>
+    <div class="col-3">
+        <h2>Independent technology <br />and no vendor lock-in</h2>
+        <p>Open source and open access means <br />you keep control of your data <br />and the technology you use</p>
+        <img src="/public/img/box3.jpg" />
+
+    </div>
+    <div class="bottom-lm">
+        <p><a href="http://www.matecat.com/features" target="_blank"><strong>Discover all MateCat features</strong></a> or <a class="open-more">close this window</a></p>
+    </div>
+
+</div>
+<div class="wrapper-claim">
 <h1 tal:condition="true:conversion_enabled">Translate your files</h1>
 
 <h1 tal:condition="not:conversion_enabled">Translate an XLIFF file</h1>
 
-<h2 class="payoff">Matecat gives you more matches than any other translation tool.</h2>
+<h2 class="payoff">MateCat gives you more matches than any other CAT tool. <a class="open-more">Learn more.</a></h2>
+</div>
+<div class="wrapper-upload">
 
 
 <div class="translate-box">
@@ -147,7 +197,7 @@
     <div class="translate-box">
         <h2>Machine Translation</h2>
         <select name="mt_engine" id="mt_engine" tal:define="mt_engine php:array()">
-            <option value="0" >NONE</option>
+            <option value="0">NONE</option>
             <option value="1" selected="selected">MyMemory (All Pairs)</option>
             <tal:block tal:repeat="mt_engine mt_engines">
                 <option value="--" tal:attributes="value mt_engine/id" tal:content="mt_engine/name">---</option>
@@ -164,16 +214,15 @@
 
     <div class="translate-box">
         <span class="btn btn-success fileinput-button" id="create_private_tm_btn">
-            <i class="icon-plus icon-white"></i>
-            <span>Create a new private TM</span>
-            <input id="private-tm-new" type="file" name="files[]" multiple="multiple" class="multiple-button"/>
+<!--            <i class="icon-plus icon-white"></i> -->
+            <span>Create</span>
         </span>
     </div>
 
     <div class="translate-box translate-checkbox">
         <span class="tms-checkbox" id="disable_tms_checkbox">
             <label class="tms-label" for="disable_tms_engine">Disable TM, Concordance and Glossary</label>
-            <input type="checkbox" value="true" id="disable_tms_engine" name="no_tms_engine" />
+            <input type="checkbox" value="true" id="disable_tms_engine" name="no_tms_engine"/>
         </span>
     </div>
 
@@ -184,6 +233,7 @@
 
 <div class="cl"></div>
 <p class="warning-message"> Error: the errmsg will appear here... </p>
+
 <p class="error-message"> Error: the errmsg will appear here... </p>
 
 <div class="cl"></div>
@@ -196,7 +246,7 @@
 
             <p tal:condition="true:conversion_enabled" class="file-drag">
                 <strong>Drag and drop</strong> your file here<br/>
-				<span class="min">You may also import your own translation memories (TMX)</span><br />
+                <span tal:condition="true:isUploadTMXAllowed" class="min">You may also import your own translation memories (TMX)</span><br/>
                 or</p>
 
             <p tal:condition="not:conversion_enabled" class="file-drag">
@@ -215,7 +265,7 @@
                     <div class="span7">
                         <!-- The fileinput-button span is used to style the file input field as button -->
                                     <span class="btn btn-success fileinput-button">
-                                        <i class="icon-plus icon-white"></i>
+<!--                                        <i class="icon-plus icon-white"></i> -->
                                         <span>Add files...</span>
                                         <input type="file" name="files[]" multiple="multiple" class="multiple-button"/>
                                     </span>
@@ -284,13 +334,13 @@
 
             <p tal:condition="not:conversion_enabled"><strong>Drag and drop</strong> your XLIFF here or </p>
                         <span id="add-files" class="btn fileinput-button">
-                            <i class="icon-plus icon-white"></i>
+<!--                            <i class="icon-plus icon-white"></i> -->
                             <span>Add files...</span>
                             <input type="file" name="files[]" multiple="multiple" class="multiple-button"/>
-                        </span> 
+                        </span>
                         <span id="clear-all-files" class="btn fileinput-button cancel-btn">
                             <span>Clear all</span>
-                        </span> 
+                        </span>
                         <span id="delete-failed-conversions" class="btn fileinput-button cancel-btn">
                             <span>Clear all failed</span>
                         </span>
@@ -304,7 +354,7 @@
                 <span>Cancel upload</span>
             </button>
 -->
-<p tal:condition="true:conversion_enabled" class="supported-files">Matecatpro supports
+<p tal:condition="true:conversion_enabled" class="supported-files">This hosted version of MateCat supports
     <a class="supported-file-formats" href="#">${formats_number} file formats</a>.</p>
 
 <div class="uploadbtn-box">
@@ -458,6 +508,7 @@
 
     {% } %}
 
+
 </script>
 
 
@@ -594,6 +645,7 @@
 
 
     {% } %}
+
 </script>
 
 <script tal:condition="not:volume_analysis_enabled" id="job-links-list" type="text/x-tmpl">
@@ -630,6 +682,7 @@
         {% } %}
         </tbody>
     </table>
+
 </script>
 
 <script src="${basepath}public/js/lib/jquery-ui-1.8.20.custom.min.js"></script>
@@ -723,20 +776,30 @@
     </div>
 </div>
 
+<div metal:use-macro="popup_google_login.html/googleLoginPopup"/>
 
 <footer>
     <div class="wrapper">
 
         <nav>
             <ul>
-                <li><a tal:attributes="href string:${basepath}manage/?new=1">Manage</a></li>
+                <tal:block tal:condition="php: !empty(logged_user)">
+                    <li><a tal:attributes="href string:${basepath}manage/?new=1">Manage</a></li>
+                </tal:block>
+
+                <tal:block tal:condition="php: empty(logged_user)">
+                    <li><a href="${authURL}" class="authLink">Manage</a></li>
+                </tal:block>
+
                 <li><a tal:attributes="href string:${basepath}api/docs">API</a></li>
-				<li><a href="http://docs.matecat.com" target="_blank">Docs</a></li>
+
+                <li><a href="/terms" target="_blank">Terms</a></li>
+
             </ul>
 
             <tal:block tal:condition="php: empty(logged_user)">
                 <div id='welcomebox'>
-                    <span>Anonymous</span> (<a id='loginlink' tal:attributes="href incomingUrl">login</a>)
+                    <span>Anonymous</span> (<a id='loginlink' class="authLink" href="${authURL}">login</a>)
                 </div>
             </tal:block>
 
@@ -751,8 +814,51 @@
     </div>
 </footer>
 
-<script src="${basepath}public/js/lib/snapengage.js"></script>
+<div class="iepopup nobrowser">
+    
+    <a href="${basepath}" class="logoblack"></a>
 
+    <div class="titleie">
+        <h1>Welcome to MateCat!</h1>
+        <h2>There are 2 options for you</h2>
+    </div>
+    <div class="col-2 pull-left col-a">
+        <h3>1 - Use the tool by visiting MateCat.com from your desktop</h3>
+        <p>MateCat works great with the following browsers</p>
+        <ul>
+            <li><a href="https://www.google.com/intl/en/chrome/browser/" target="_blank"><img src="/public/img/chrome.jpg" width="140" /><br />
+    Chrome</a></li>
+
+            <li><a href="http://appldnld.apple.com/Safari5/041-5487.20120509.INU8B/SafariSetup.exe"><img src="/public/img/safari.jpg" width="140" /><br />
+    Safari</a></li>
+        </ul>
+    </div>
+    <div class="col-2 pull-left col-b">
+        <h3>2 - Learn more about MateCat</h3>
+        <p><a class="button-learn" href="http://www.matecat.com/features">Visit the website</a></p>
+    </div>
+</div>
+<script src="${basepath}public/js/lib/snapengage.js"></script>
+<script type="text/javascript">
+$(".open-more").click(function() {
+        $( ".cat-appear-div" ).hide();
+        $( ".payoff .open-more").html($('.payoff .open-more').text() == '' ? 'Learn more.' : '');
+        $( ".learnmore" ).slideToggle( "700", function() {
+            // Animation complete.
+        });
+    });
+</script>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-28800161-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+<img height='1' width='1' border='0' src='Http://www.clickmeter.com/conversion.aspx?id=5540EC432C934E0FB1EADDBA3A58E8EA&val=0.00&param=empty&com=0.00'/>
 </body>
 
 </html>

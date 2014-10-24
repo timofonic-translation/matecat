@@ -39,6 +39,7 @@ $.extend(UI, {
 		this.searchEnabled = true;
 		if (this.searchEnabled)
 			$('#filterSwitch').show();
+            this.fixHeaderHeightChange();
 		this.viewConcordanceInContextMenu = true;
 		if (!this.viewConcordanceInContextMenu)
 			$('#searchConcordance').hide();
@@ -55,12 +56,16 @@ $.extend(UI, {
 		this.surveyDisplayed = false;
 		this.warningStopped = false;
 		this.abortedOperations = [];
-		
+        this.propagationsAvailable = false;
+        this.logEnabled = false;
+        this.unsavedSegmentsToRecover = [];
+        this.recoverUnsavedSegmentsTimer = false;
+
 		/**
 		 * Global Warnings array definition.
 		 */
-		this.globalWarnings = [];
-
+		this.globalWarnings = [];		
+		
 		this.shortcuts = {
 			"translate": {
 				"label" : "Confirm translation",
@@ -98,8 +103,8 @@ $.extend(UI, {
 				"label" : "Go to current segment",
 				"equivalent": "",
 				"keystrokes" : {
-					"standard": "ctrl+left",
-					"mac": "meta+left",
+					"standard": "ctrl+home",
+					"mac": "meta+shift+up",
 				}
 			},
 			"copySource": {

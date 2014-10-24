@@ -42,7 +42,6 @@ class NewController extends ajaxController {
 		//limit execution time to 300 seconds
 		set_time_limit( 300 );
 
-		$this->disableSessions();
 		parent::__construct();
 
 		//force client to close connection, avoid UPLOAD_ERR_PARTIAL for keep-alive connections
@@ -172,17 +171,32 @@ class NewController extends ajaxController {
 		}
 		/* Do conversions here */
 
-		//from api a key is sent and the value is 'new'
-		if( $this->private_tm_key == 'new' ){
-			include_once INIT::$UTILS_ROOT . "/engines/tms.class.php";
-			//crea nuova chiave
-			$newUser = TMS::createMyMemoryKey(); //throws exception
-			$this->private_tm_key  = $newUser->key;
-			$this->private_tm_user = $newUser->id;
-			$this->private_tm_pass = $newUser->pass;
-		}
 
-		$projectStructure = new RecursiveArrayObject(
+        //from api a key is sent and the value is 'new'
+        if ( $this->private_tm_key == 'new' ) {
+
+            try {
+
+                $APIKeySrv = TMSServiceFactory::getAPIKeyService();
+
+                $newUser = $APIKeySrv->createMyMemoryKey();
+
+                $this->private_tm_key  = $newUser->key;
+                $this->private_tm_user = $newUser->id;
+                $this->private_tm_pass = $newUser->pass;
+
+            } catch ( Exception $e ) {
+
+                $this->api_output[ 'message' ] = 'Project Creation Failure';
+                $this->api_output[ 'debug' ]   = array( "code" => $e->getCode(), "message" => $e->getMessage() );
+
+                return -1;
+            }
+
+        }
+
+
+        $projectStructure = new RecursiveArrayObject(
 				array(
 					'id_project'         => null,
 					'id_customer'        => null,
@@ -210,6 +224,7 @@ class NewController extends ajaxController {
 					'job_to_split'       => null,
 					'job_to_split_pass'  => null,
 					'split_result'       => null,
+					'skip_lang_validation' => true
 					) );
 
 		$projectManager = new ProjectManager( $projectStructure );

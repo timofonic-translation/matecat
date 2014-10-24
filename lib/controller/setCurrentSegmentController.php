@@ -10,7 +10,6 @@ class setCurrentSegmentController extends ajaxController {
 
     public function __construct() {
 
-        $this->disableSessions();
         parent::__construct();
 
         $filterArgs = array(
@@ -58,9 +57,19 @@ class setCurrentSegmentController extends ajaxController {
         $insertRes     = setCurrentSegmentInsert( $this->id_segment, $this->id_job, $this->password );
         $nextSegmentId = getNextUntranslatedSegment( $this->id_segment, $this->id_job, $this->password );
 
-        $Translation_mismatches = getTranslationsMismatches( $this->id_job, $this->password, $this->id_segment );
+        $_thereArePossiblePropagations = countThisTranslatedHashInJob( $this->id_job, $this->password, $this->id_segment );
+        $thereArePossiblePropagations = intval( $_thereArePossiblePropagations['available'] );
 
-        $result = array( 'editable' => array(), 'not_editable' => array() );
+        $Translation_mismatches = array();
+        if( $thereArePossiblePropagations ){
+            $Translation_mismatches = getTranslationsMismatches( $this->id_job, $this->password, $this->id_segment );
+        }
+
+        $result = array(
+                'editable' => array(),
+                'not_editable' => array(),
+                'prop_available' => $thereArePossiblePropagations
+        );
 
         foreach( $Translation_mismatches as $position => $row ){
 

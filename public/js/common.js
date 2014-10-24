@@ -91,6 +91,7 @@ APP = {
 		$("body").on('click', '#messageBar .close', function(e) {
 			e.preventDefault();
 			$('body').removeClass('incomingMsg');
+            $('#messageBar').html('<span class="msg"></span><a href="#" class="close"></a>');
 			if(typeof $('#messageBar').attr('data-token') != 'undefined') {
 				var expireDate = new Date($('#messageBar').attr('data-expire'));
 				$.cookie($('#messageBar').attr('data-token'), '', { expires: expireDate });				
@@ -131,9 +132,10 @@ APP = {
 //        }
     },
 	doRequest: function(req,log) {
+//        console.log('req: ', req);
 		logTxt = (typeof log == 'undefined')? '' : '&type=' + log;
 		version = (typeof config.build_number == 'undefined')? '' : '-v' + config.build_number;
-		builtURL = (req.url)? req.url : config.basepath + '?action=' + req.data.action + logTxt + this.appendTime() + version;
+		builtURL = (req.url)? req.url : config.basepath + '?action=' + req.data.action + logTxt + this.appendTime() + version + ',jid=' + config.job_id + ((typeof req.data.id_segment != 'undefined')? ',sid=' + req.data.id_segment : '');
 		var setup = {
 			url: builtURL,
 //			url: config.basepath + '?action=' + req.data.action + logTxt + this.appendTime() + version,
@@ -176,7 +178,8 @@ APP = {
                                     type: '', // "ok" (default) or "cancel"
                                     text: '', 
                                     callback: '', // name of a UI function to execute
-                                    params: '' // (optional) parameters to pass at the callback function
+                                    params: '', // (optional) parameters to pass at the callback function
+                                    closeOnClick: '' // (optional) true||false
                                 },
                                 ...                        
                         ]
@@ -198,11 +201,14 @@ APP = {
             APP.confirmCallbackFunction = (conf.onConfirm)? conf.onConfirm : null;
             APP.cancelCallbackFunction = (conf.onCancel)? conf.onCancel : null;
             APP.callerObject = (conf.caller)? conf.caller : null;
+        } else if(conf.type == 'free') {
+            var cl = (this.type == 'ok')? 'btn-ok' : (this.type == 'cancel')? 'btn-cancel' : '';
+            newPopup += '<a href="#"' + ((this.callback)? ' onclick="UI.' + this.callback + '(\'' + ((this.params)? this.params : '') + '\'); return false;"' : '') + ' id="popup-button-' + index + '" class="' + cl + '">' + (this.text || 'ok') + '<\a>';
         } else {
             $.each(conf.buttons, function(index) {
                 var cl = (this.type == 'ok')? 'btn-ok' : (this.type == 'cancel')? 'btn-cancel' : '';
-                newPopup += '<a href="#"' + ((this.callback)? ' onclick="UI.' + this.callback + '(\'' + ((this.params)? this.params : '') + '\'); return false;"' : '') + ' id="popup-button-' + index + '" class="' + cl + '">' + (this.text || 'ok') + '<\a>';
-            });            
+                newPopup += '<a href="#"' + ((this.callback)? ' onclick="UI.' + this.callback + '(\'' + ((this.params)? this.params : '') + '\'); ' + ((this.closeOnClick)? "$('.x-popup').click(); " : '') + 'return false;"' : '') + ' id="popup-button-' + index + '" class="' + cl + '">' + (this.text || 'ok') + '<\a>';
+            });
         }
         newPopup += '</div>';
         $('body').append(newPopup);

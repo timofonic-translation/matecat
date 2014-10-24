@@ -8,7 +8,7 @@ include_once INIT::$UTILS_ROOT . "/langs/languages.class.php";
 define("LTPLACEHOLDER", "##LESSTHAN##");
 define("GTPLACEHOLDER", "##GREATERTHAN##");
 define("AMPPLACEHOLDER", "##AMPPLACEHOLDER##");
-define("NBSPPLACEHOLDER", "<x id=\"nbsp\"/>");
+//define("NBSPPLACEHOLDER", "<x id=\"nbsp\"/>");
 
 class CatUtils {
 
@@ -22,21 +22,15 @@ class CatUtils {
     const crPlaceholderRegex   = '/\#\#\$_0D\$\#\#/g';
     const crlfPlaceholderRegex = '/\#\#\$_0D0A\$\#\#/g';
 
+    const tabPlaceholder       = '##$_09$##';
+    const tabPlaceholderClass  = '_09';
+    const tabPlaceholderRegex  = '/\#\#\$_09\$\#\#/g';
+
+    const nbspPlaceholder       = '##$_A0$##';
+    const nbspPlaceholderClass  = '_A0';
+    const nbspPlaceholderRegex  = '/\#\#\$_A0\$\#\#/g';
+
     public static $cjk = array( 'zh' => 1.8, 'ja' => 2.5, 'ko' => 2.5, 'km' => 5 );
-
-    //following functions are useful for manage the consistency of non braking spaces
-    // chars coming, expecially,from MS Word
-    // ref nbsp code https://en.wikipedia.org/wiki/Non-breaking_space
-    public static function placeholdnbsp($s) {
-        $s = preg_replace("/\x{a0}/u", NBSPPLACEHOLDER, $s);
-        return $s;
-    }
-
-    public static function restorenbsp($s) {
-        $pattern = "#" . NBSPPLACEHOLDER . "#";
-        $s = preg_replace($pattern, Utils::unicode2chr(0Xa0), $s);
-        return $s;
-    }
 
     // ----------------------------------------------------------------
 
@@ -49,11 +43,6 @@ class CatUtils {
         $pattern = "#" . AMPPLACEHOLDER . "#";
         $s = preg_replace($pattern, Utils::unicode2chr("&"), $s);
         return $s;
-    }
-
-    //reconcile tag ids
-    public static function ensureTagConsistency( $q, $source_seg, $target_seg ) {
-        //TODO
     }
 
     private static function parse_time_to_edit($ms) {
@@ -118,16 +107,49 @@ class CatUtils {
         $segment = preg_replace('|<(/it)>|si', LTPLACEHOLDER . "$1" . GTPLACEHOLDER, $segment);
         $segment = preg_replace('|<(mrk\s*.*?)>|si', LTPLACEHOLDER . "$1" . GTPLACEHOLDER, $segment);
         $segment = preg_replace('|<(/mrk)>|si', LTPLACEHOLDER . "$1" . GTPLACEHOLDER, $segment);
-        return $segment;
+
+        return self::__encode_tag_attributes( $segment );
+    }
+
+    private static function __encode_tag_attributes( $segment ){
+
+        if( !function_exists( 'callback_encode' ) ){
+            function callback_encode( $matches ) {
+                return LTPLACEHOLDER . base64_encode( $matches[1] ) . GTPLACEHOLDER;
+            }
+        }
+
+        return preg_replace_callback( '/' . LTPLACEHOLDER . '(.*?)' . GTPLACEHOLDER . '/u'
+                , 'callback_encode'
+                , $segment
+        ); //base64 of the tag content to avoid unwanted manipulation
+
+    }
+
+    private static function __decode_tag_attributes( $segment ){
+
+        if( !function_exists( 'callback_decode' ) ){
+            function callback_decode( $matches ) {
+                return LTPLACEHOLDER . base64_decode( $matches[1] ) . GTPLACEHOLDER;
+            }
+        }
+
+        return preg_replace_callback( '/' . LTPLACEHOLDER . '(.*?)' . GTPLACEHOLDER . '/u'
+                , 'callback_decode'
+                , $segment
+        ); //base64 decode of the tag content to avoid unwanted manipulation
+
     }
 
     private static function restore_xliff_tags($segment) {
+        $segment = self::__decode_tag_attributes( $segment );
         $segment = str_replace(LTPLACEHOLDER, "<", $segment);
         $segment = str_replace(GTPLACEHOLDER, ">", $segment);
         return $segment;
     }
 
     private static function restore_xliff_tags_for_wiew($segment) {
+        $segment = self::__decode_tag_attributes( $segment );
         $segment = str_replace(LTPLACEHOLDER, "&lt;", $segment);
         $segment = str_replace(GTPLACEHOLDER, "&gt;", $segment);
         return $segment;
@@ -186,6 +208,7 @@ class CatUtils {
         $segment = str_replace( '##$_0D0A$##',"\r\n", $segment );
         $segment = str_replace( '##$_0A$##',"\n", $segment );
         $segment = str_replace( '##$_0D$##',"\r", $segment );
+        $segment = str_replace( '##$_09$##',"\t", $segment );
 
         // input : <g id="43">bang & olufsen < 3 </g> <x id="33"/>; --> valore della funzione .text() in cat.js su source, target, source suggestion,target suggestion
         // output : <g> bang &amp; olufsen are > 555 </g> <x/>
@@ -195,6 +218,12 @@ class CatUtils {
             html_entity_decode($segment, ENT_NOQUOTES, 'UTF-8'),
             ENT_NOQUOTES, 'UTF-8', false
         );
+
+        //replace all incoming &nbsp; ( \xA0 ) with normal spaces ( \x20 ) as we accept only ##$_A0$##
+        $segment = str_replace( Utils::unicode2chr(0Xa0) , " ", $segment );
+
+        // now convert the real &nbsp;
+        $segment = str_replace( '##$_A0$##', Utils::unicode2chr(0Xa0) , $segment );
 
         //encode all not valid XML entities
         $segment = preg_replace('/&(?!lt;|gt;|amp;|quot;|apos;|#[x]{0,1}[0-9A-F]{1,4};)/', '&amp;' , $segment );
@@ -207,19 +236,23 @@ class CatUtils {
         // input : <g id="43">bang &amp; &lt; 3 olufsen </g>; <x id="33"/>
         //$segment = self::placehold_xml_entities($segment);
         $segment = self::placehold_xliff_tags($segment);
-        
-        
+
+        //replace all outgoing spaces couples to a space and a &nbsp; so they can be displayed to the browser
+        $segment = preg_replace('/\s{2}/', " &nbsp;", $segment);
+
         $segment = html_entity_decode($segment, ENT_NOQUOTES | 16 /* ENT_XML1 */, 'UTF-8');
         // restore < e >
         $segment = str_replace("<", "&lt;", $segment);
         $segment = str_replace(">", "&gt;", $segment);
-
-
         $segment = preg_replace('|<(.*?)>|si', "&lt;$1&gt;", $segment);
+
         $segment = self::restore_xliff_tags_for_wiew($segment);
+
         $segment = str_replace("\r\n", '##$_0D0A$##', $segment );
         $segment = str_replace("\n", '##$_0A$##', $segment );
         $segment = str_replace("\r", '##$_0D$##', $segment ); //x0D character
+        $segment = str_replace("\t", '##$_09$##', $segment ); //x09 character
+        $segment = preg_replace( '/\x{a0}/u', '##$_A0$##', $segment ); //xA0 character ( NBSP )
         return $segment;
     }
 
@@ -237,11 +270,6 @@ class CatUtils {
         $segment = html_entity_decode($segment, ENT_NOQUOTES, 'UTF-8');
         $segment = self::restore_xliff_tags_for_wiew($segment);
         return $segment;
-    }
-
-    // transform any segment format in raw xliff format: raw xliff will be used as starting format for any manipulation
-    public static function toRawXliffNormalizer($segment) {
-        ;
     }
 
     public static function getEditingLogData($jid, $password, $use_ter_diff = false ) {
@@ -327,10 +355,16 @@ class CatUtils {
 //            $sug_for_diff = html_entity_decode($sug_for_diff, ENT_NOQUOTES, 'UTF-8');
 //            $tra_for_diff = html_entity_decode($tra_for_diff, ENT_NOQUOTES, 'UTF-8');
 
-            //$ter          = MyMemory::diff_tercpp( $sug_for_diff, $tra_for_diff, $lang );
-
             //with this patch we have warnings when accessing indexes
-            $ter=array();
+            if( $use_ter_diff  ){
+                $ter = MyMemory::diff_tercpp( $sug_for_diff, $tra_for_diff, $lang );
+            } else {
+                $ter = array();
+            }
+
+//            Log::doLog( $sug_for_diff );
+//            Log::doLog( $tra_for_diff );
+//            Log::doLog( $ter );
 
             $seg[ 'ter' ] = @$ter[ 1 ] * 100;
             $stat_ter[ ]  = $seg[ 'ter' ] * $seg[ 'rwc' ];
@@ -370,13 +404,39 @@ class CatUtils {
             $seg['source'] = trim( CatUtils::rawxliff2view( $seg['source'] ) );
             $seg['translation'] = trim( CatUtils::rawxliff2view( $seg['translation'] ) );
 
-            $array_patterns     = array( rtrim( self::lfPlaceholderRegex, 'g' ) , rtrim( self::crPlaceholderRegex, 'g' ), rtrim( self::crlfPlaceholderRegex, 'g' ) );
-            $array_replacements = array( '<br class="_0A" />', '<br class="_0D" />', '<br class="_0D0A" />' );
+            $array_patterns     = array(
+                    rtrim( self::lfPlaceholderRegex, 'g' ) ,
+                    rtrim( self::crPlaceholderRegex, 'g' ),
+                    rtrim( self::crlfPlaceholderRegex, 'g' ),
+                    rtrim( self::tabPlaceholderRegex, 'g' ),
+                    rtrim( self::nbspPlaceholderRegex, 'g' ),
+            );
 
+
+            $array_replacements_csv = array(
+                    '\n',
+                    '\r',
+                    '\r\n',
+                    '\t',
+                    Utils::unicode2chr(0Xa0),
+            );
+            $seg['source_csv'] = preg_replace( $array_patterns, $array_replacements_csv, $seg['source'] );
+            $seg['translation_csv'] = preg_replace( $array_patterns, $array_replacements_csv, $seg['translation'] );
+            $seg['sug_csv'] =  preg_replace( $array_patterns, $array_replacements_csv, $seg['sug_view'] );
+            $seg['diff_csv'] = preg_replace( $array_patterns, $array_replacements_csv, $seg['diff'] );
+
+
+            $array_replacements = array(
+                    '<span class="_0A"></span><br />',
+                    '<span class="_0D"></span><br />',
+                    '<span class="_0D0A"></span><br />',
+                    '<span class="_tab">&#9;</span>',
+                    '<span class="_nbsp">&nbsp;</span>',
+            );
             $seg['source'] = preg_replace( $array_patterns, $array_replacements, $seg['source'] );
             $seg['translation'] = preg_replace( $array_patterns, $array_replacements, $seg['translation'] );
+            $seg['sug_view'] =  preg_replace( $array_patterns, $array_replacements, $seg['sug_view'] );
             $seg['diff'] = preg_replace( $array_patterns, $array_replacements, $seg['diff'] );
-
 
             if( $seg['mt_qe'] == 0 ){
                 $seg['mt_qe'] = 'N/A';
@@ -420,7 +480,7 @@ class CatUtils {
         $updateRes = addTranslation( $_Translation );
 
         if ($updateRes < 0) {
-            $result['error'][] = array("code" => -5, "message" => "error occurred during the storing (UPDATE) of the translation for the segment $id_segment - Error: $updateRes");
+            $result['error'][] = array("code" => -5, "message" => "error occurred during the storing (UPDATE) of the translation for the segment {$_Translation['id_segment']} - Error: $updateRes");
             return $result;
         }
 
@@ -461,59 +521,6 @@ class CatUtils {
             }
         }
         return 0;
-    }
-
-    /**
-     * Public method to access to multiple Job Stats Info
-     * 
-     * @param array $jids
-     * @param bool $estimate_performance
-     * @return mixed
-     * <pre>
-     *   $res_job_stats = array(
-     *      (int)id => 
-     *          array(
-     *              'id'                           => (int),
-     *              'TOTAL'                        => (int),
-     *              'TRANSLATED'                   => (int),
-     *              'APPROVED'                     => (int),
-     *              'REJECTED'                     => (int),
-     *              'DRAFT'                        => (int),
-     *              'ESTIMATED_COMPLETION'         => (int),
-     *              'WORDS_PER_HOUR'               => (int),
-     *          )
-     *   );
-     * </pre>
-     * 
-     */
-    public static function getStatsForMultipleJobs( array $jids, $estimate_performance = false) {
-
-        //get stats for all jids
-        $jobs_stats = getStatsForMultipleJobs($jids);
-
-        //init results
-        $res_job_stats = array();
-        foreach ($jobs_stats as $job_stat) {
-            // this prevent division by zero error when the jobs contains only segment having untranslatable content	
-            if ($job_stat['TOTAL'] == 0) {
-                $job_stat['TOTAL'] = 1;
-            }
-            
-            $job_stat = self::_getStatsForJob($job_stat, $estimate_performance);
-            if ($estimate_performance){
-                $job_stat = self::_performanceEstimationTime($job_stat);
-            }
-            
-            $jid = $job_stat['id'];
-            $jpass = $job_stat['password'];
-            unset($job_stat['id']);
-            unset($job_stat['password']);
-            $res_job_stats[ $jid . "-" . $jpass ] = $job_stat;
-            unset($jid);
-        }
-        
-        return $res_job_stats;
-
     }
 
     /**
