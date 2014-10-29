@@ -23,10 +23,9 @@ CREATE DATABASE /*!32312 IF NOT EXISTS*/ `matecat` /*!40100 DEFAULT CHARACTER SE
 
 USE `matecat`;
 
---
--- Table structure for table `converters`
---
-
+-- ----------------------------
+-- Table structure for converters
+-- ----------------------------
 DROP TABLE IF EXISTS `converters`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -44,6 +43,7 @@ CREATE TABLE `converters` (
   `status_reboot` tinyint(4) NOT NULL DEFAULT '0',
   `conversion_api_version` varchar(100) DEFAULT '2011',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `id_UNIQUE` (`id`),
   UNIQUE KEY `ip_converter_UNIQUE` (`ip_converter`),
   UNIQUE KEY `ip_storage_UNIQUE` (`ip_storage`),
   KEY `status_active` (`status_active`),
@@ -52,10 +52,9 @@ CREATE TABLE `converters` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `converters_log`
---
-
+-- ----------------------------
+-- Table structure for converters_log
+-- ----------------------------
 DROP TABLE IF EXISTS `converters_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -71,10 +70,9 @@ CREATE TABLE `converters_log` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `engines`
---
-
+-- ----------------------------
+-- Table structure for engines
+-- ----------------------------
 DROP TABLE IF EXISTS `engines`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -134,10 +132,9 @@ CREATE TABLE `file_references` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `files`
---
-
+-- ----------------------------
+-- Table structure for files
+-- ----------------------------
 DROP TABLE IF EXISTS `files`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -157,10 +154,9 @@ CREATE TABLE `files` (
 ) ENGINE=MyISAM AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `files_job`
---
-
+-- ----------------------------
+-- Table structure for files_job
+-- ----------------------------
 DROP TABLE IF EXISTS `files_job`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -178,10 +174,9 @@ CREATE TABLE `files_job` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `jobs`
---
-
+-- ----------------------------
+-- Table structure for jobs
+-- ----------------------------
 DROP TABLE IF EXISTS `jobs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -203,7 +198,7 @@ CREATE TABLE `jobs` (
   `id_tms` int(11) DEFAULT '1',
   `id_mt_engine` int(11) DEFAULT '1',
   `create_date` datetime NOT NULL,
-  `last_update` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `last_update` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `disabled` tinyint(4) NOT NULL,
   `owner` varchar(100) DEFAULT NULL,
   `status_owner` varchar(100) NOT NULL DEFAULT 'active',
@@ -228,10 +223,9 @@ CREATE TABLE `jobs` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `notifications`
---
-
+-- ----------------------------
+-- Table structure for notifications
+-- ----------------------------
 DROP TABLE IF EXISTS `notifications`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -245,10 +239,9 @@ CREATE TABLE `notifications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `original_files_map`
---
-
+-- ----------------------------
+-- Table structure for original_files_map
+-- ----------------------------
 DROP TABLE IF EXISTS `original_files_map`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -263,10 +256,9 @@ CREATE TABLE `original_files_map` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `projects`
---
-
+-- ----------------------------
+-- Table structure for projects
+-- ----------------------------
 DROP TABLE IF EXISTS `projects`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -293,10 +285,9 @@ CREATE TABLE `projects` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `segment_translations`
---
-
+-- ----------------------------
+-- Table structure for segment_translations
+-- ----------------------------
 DROP TABLE IF EXISTS `segment_translations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -336,10 +327,9 @@ CREATE TABLE `segment_translations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `segments`
---
-
+-- ----------------------------
+-- Table structure for segments
+-- ----------------------------
 DROP TABLE IF EXISTS `segments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -368,10 +358,9 @@ CREATE TABLE `segments` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `segments_comments`
---
-
+-- ----------------------------
+-- Table structure for segments_comments
+-- ----------------------------
 DROP TABLE IF EXISTS `segments_comments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -386,10 +375,9 @@ CREATE TABLE `segments_comments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `translators`
---
-
+-- ----------------------------
+-- Table structure for translators
+-- ----------------------------
 DROP TABLE IF EXISTS `translators`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -405,10 +393,9 @@ CREATE TABLE `translators` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `users`
---
-
+-- ----------------------------
+-- Table structure for users
+-- ----------------------------
 DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -424,6 +411,7 @@ CREATE TABLE `users` (
   KEY `api_key` (`api_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 --
 -- Current Database: `matecat_analysis`
