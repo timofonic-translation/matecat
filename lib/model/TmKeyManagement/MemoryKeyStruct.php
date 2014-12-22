@@ -10,12 +10,7 @@
  * Class MemoryKeyStruct<br>
  * This class represents a row in the table memory_keys.
  */
-class TmKeyManagement_MemoryKeyStruct extends stdClass implements DataAccess_IDaoStruct {
-
-    /**
-     * @var integer The group's ID
-     */
-    public $gid;
+class TmKeyManagement_MemoryKeyStruct extends DataAccess_AbstractDaoObjectStruct implements DataAccess_IDaoStruct {
 
     /**
      * @var integer The user's ID
@@ -23,33 +18,9 @@ class TmKeyManagement_MemoryKeyStruct extends stdClass implements DataAccess_IDa
     public $uid;
 
     /**
-     * @var integer The owner's ID
-     */
-    public $owner_uid;
-
-    /**
-     * @var string Group grants. One of the following strings: "r", "w", "rw"
-     */
-    public $grants;
-
-    /**
      * @var TmKeyManagement_TmKeyStruct
      */
     public $tm_key;
-
-    public function __construct( Array $array_params = array() ) {
-        if ( $array_params != null ) {
-            foreach ( $array_params as $property => $value ) {
-                $this->$property = $value;
-            }
-        }
-    }
-
-    public function __set( $name, $value ) {
-        if ( !property_exists( $this, $name ) ) {
-            throw new DomainException( 'Unknown property ' . $name );
-        }
-    }
 
     /**
      * Converts the current object into an associative array
@@ -59,10 +30,16 @@ class TmKeyManagement_MemoryKeyStruct extends stdClass implements DataAccess_IDa
         $result = (array)$this;
 
         if ( $this->tm_key !== null ) {
-            $result[ 'tm_key' ] = $this->tm_key->toArray();
+            /*
+             * this should already done by '$result = (array)$this;'
+             * because TmKeyManagement_TmKeyStruct as toArray method too
+             */
+            if( $this->tm_key instanceof TmKeyManagement_TmKeyStruct ){
+                $result[ 'tm_key' ] = $this->tm_key->toArray();
+            }
         }
 
         return $result;
     }
 
-} 
+}

@@ -42,6 +42,8 @@ class catController extends viewController {
     private $last_job_segment;
     private $last_opened_segment;
 
+    private $_keyList = array( 'totals' => array(), 'job_keys' => array() );
+
     /**
      * @var string
      */
@@ -102,26 +104,6 @@ class catController extends viewController {
 
         $this->generateAuthURL();
 
-	}
-
-	private function parse_time_to_edit($ms) {
-		if ($ms <= 0) {
-			return array("00", "00", "00", "00");
-		}
-
-		$usec = $ms % 1000;
-		$ms = floor($ms / 1000);
-
-		$seconds = str_pad($ms % 60, 2, "0", STR_PAD_LEFT);
-		$ms = floor($ms / 60);
-
-		$minutes = str_pad($ms % 60, 2, "0", STR_PAD_LEFT);
-		$ms = floor($ms / 60);
-
-		$hours = str_pad($ms % 60, 2, "0", STR_PAD_LEFT);
-		$ms = floor($ms / 60);
-
-		return array($hours, $minutes, $seconds, $usec);
 	}
 
     private function doAuth() {
@@ -326,6 +308,130 @@ class catController extends viewController {
         $this->firstSegmentOfFiles = json_encode( $fileInfo );
         $this->fileCounter         = json_encode( $TotalPayable );
 
+
+        list( $uid, $user_email ) = $this->getLoginUserParams();
+
+        //TODO: IMPROVE
+        $_from_url = parse_url( $_SERVER['REQUEST_URI'] );
+        $url_request = strpos( $_from_url['path'] , "/revise" ) === 0;
+        if ( $url_request ) {
+            $this->userRole = TmKeyManagement_Filter::ROLE_REVISOR;
+        } elseif( $user_email == $data[ 0 ]['job_owner'] ) {
+            $this->userRole = TmKeyManagement_Filter::OWNER;
+        } else {
+            $this->userRole = TmKeyManagement_Filter::ROLE_TRANSLATOR;
+        }
+
+        try {
+
+            /*
+             * Take the keys of the user
+             */
+            $_keyList = new TmKeyManagement_MemoryKeyDao( Database::obtain() );
+            $dh       = new TmKeyManagement_MemoryKeyStruct( array( 'uid' => $uid ) );
+
+            $keyList = $_keyList->read( $dh );
+
+        } catch ( Exception $e ) {
+
+            $keyList = array();
+            Log::doLog( $e->getMessage() );
+
+        }
+
+
+        $reverse_lookup_user_personal_keys = array( 'pos' => array(), 'elements' => array() );
+        /**
+         * Set these keys as editable for the client
+         *
+         * @var $keyList TmKeyManagement_MemoryKeyStruct[]
+         */
+        foreach ( $keyList as $_j => $key ) {
+
+            /**
+             * @var $_client_tm_key TmKeyManagement_TmKeyStruct
+             */
+
+            //create a reverse lookup
+            $reverse_lookup_user_personal_keys[ 'pos' ][ $_j ]      = $key->tm_key->key;
+            $reverse_lookup_user_personal_keys[ 'elements' ][ $_j ] = $key;
+
+            $this->_keyList[ 'totals' ][ $_j ] = new TmKeyManagement_ClientTmKeyStruct( $key->tm_key );
+
+        }
+
+        /*
+         * Now take the JOB keys
+         */
+        $job_keyList = json_decode( $data[ 0 ][ 'tm_keys' ], true );
+
+        /**
+         * Start this N^2 cycle from keys of the job,
+         * these should be statistically lesser than the keys of the user
+         *
+         * @var $keyList array
+         */
+        foreach ( $job_keyList as $jobKey ) {
+
+            $jobKey = new TmKeyManagement_ClientTmKeyStruct( $jobKey );
+
+            if( $this->isLoggedIn() && count( $reverse_lookup_user_personal_keys[ 'pos' ] ) ){
+
+                /*
+                 * If user has some personal keys, check for the job keys if they are present, and obfuscate
+                 * when they are not
+                 */
+                $_index_position = array_search( $jobKey->key, $reverse_lookup_user_personal_keys[ 'pos' ] );
+                if( $_index_position !== false ){
+
+                    //i found a key in the job that is present in my database
+                    //i'm owner?? and the key is an owner type key?
+                    if ( !$jobKey->owner && $this->userRole != TmKeyManagement_Filter::OWNER ) {
+                        $jobKey->r = $jobKey->{TmKeyManagement_Filter::$GRANTS_MAP[ $this->userRole ][ 'r' ]};
+                        $jobKey->w = $jobKey->{TmKeyManagement_Filter::$GRANTS_MAP[ $this->userRole ][ 'w' ]};
+                        $jobKey = $jobKey->hideKey( $uid );
+                    }
+
+                    else if( $jobKey->owner && $this->userRole != TmKeyManagement_Filter::OWNER ){
+                        $jobKey = $jobKey->hideKey( -1 );
+                    }
+
+                    else if( $jobKey->owner && $this->userRole == TmKeyManagement_Filter::OWNER ){
+                        //do Nothing
+                    }
+
+                    unset( $this->_keyList[ 'totals' ][ $_index_position ] );
+
+                } else {
+
+                    /*
+                     * This is not a key of that user, set right and obfuscate
+                     */
+                    $jobKey->r = true;
+                    $jobKey->w = true;
+                    $jobKey = $jobKey->hideKey( -1 );
+
+                }
+
+                $this->_keyList[ 'job_keys' ][ ] = $jobKey;
+
+            } else {
+                /*
+                 * This user is anonymous or it has no keys in its keyring, obfuscate all
+                 */
+                $jobKey->r = true;
+                $jobKey->w = true;
+                $this->_keyList[ 'job_keys' ][ ] = $jobKey->hideKey( -1 );
+
+            }
+
+        }
+
+        //clean unordered keys
+        $this->_keyList[ 'totals' ] = array_values( $this->_keyList[ 'totals' ] );
+
+//        Log::doLog( $this->_keyList );
+
     }
 
 	public function setTemplateVars() {
@@ -345,7 +451,7 @@ class catController extends viewController {
             $this->template->firstSegmentOfFiles = $this->firstSegmentOfFiles;
             $this->template->fileCounter         = $this->fileCounter;
         }
-
+        $this->template->page = 'cattool';
         $this->template->jid         = $this->jid;
         $this->template->password    = $this->password;
         $this->template->cid         = $this->cid;
@@ -367,8 +473,7 @@ class catController extends viewController {
         $this->job_stats['STATUS_BAR_NO_DISPLAY'] = ( $this->project_status['status_analysis'] == Constants_ProjectStatus::STATUS_DONE ? '' : 'display:none;' );
         $this->job_stats['ANALYSIS_COMPLETE']     = ( $this->project_status['status_analysis'] == Constants_ProjectStatus::STATUS_DONE ? true : false );
 
-//        Log::doLog( $this->job_stats );
-
+        $this->template->user_keys              = $this->_keyList;
         $this->template->job_stats              = $this->job_stats;
 
         $end_time                               = microtime( true ) * 1000;
@@ -389,6 +494,8 @@ class catController extends viewController {
         $this->template->filtered               = $this->filter_enabled;
         $this->template->filtered_class         = ( $this->filter_enabled ) ? ' open' : '';
 
+        $this->template->maxFileSize            = INIT::$MAX_UPLOAD_FILE_SIZE;
+
 		( INIT::$VOLUME_ANALYSIS_ENABLED        ? $this->template->analysis_enabled = true : null );
 
 		//check if it is a composite language, for cjk check that accepts only ISO 639 code
@@ -404,7 +511,7 @@ class catController extends viewController {
 
         //check if cjk
         if ( array_key_exists( $target_code_no_country, CatUtils::$cjk ) ) {
-            $this->template->taglockEnabled = 0;
+//            $this->template->taglockEnabled = 0;
         }
 
         /*

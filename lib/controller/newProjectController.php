@@ -2,6 +2,7 @@
 
 include_once INIT::$MODEL_ROOT . "/queries.php";
 include_once INIT::$UTILS_ROOT . "/langs/languages.class.php";
+
 include_once INIT::$UTILS_ROOT . "/Utils.php";
 
 
@@ -14,6 +15,7 @@ class newProjectController extends viewController {
 
     private $sourceLangArray = array();
     private $targetLangArray = array();
+    private $subjectArray = array();
 
     /**
      * @var string The actual URL
@@ -30,16 +32,22 @@ class newProjectController extends viewController {
      */
     private $client;
 
+    private $keyList = array();
+
     public function __construct() {
 
         parent::__construct( false );
         parent::makeTemplate( "upload.html" );
 
-        $this->guid         = Utils::create_guid();
-        $this->lang_handler = Languages::getInstance();
+        $this->guid            = Utils::create_guid();
+        $this->lang_handler    = Languages::getInstance();
+        $this->subject_handler = langs_LanguageDomains::getInstance();
+
+        $this->subjectArray = $this->subject_handler->getEnabledDomains();
     }
 
     public function doAction() {
+        //Get the guid from the guid if it exists, otherwise set the guid into the cookie
         if ( !isset( $_COOKIE[ 'upload_session' ] ) ) {
             setcookie( "upload_session", $this->guid, time() + 86400 );
         } else {
@@ -49,10 +57,12 @@ class newProjectController extends viewController {
         if ( isset ( $_COOKIE[ "sourceLang" ] ) and $_COOKIE[ "sourceLang" ] == "_EMPTY_" ) {
             $this->noSourceLangHistory = true;
         } else {
+
             if ( !isset( $_COOKIE[ 'sourceLang' ] ) ) {
                 setcookie( "sourceLang", "_EMPTY_", time() + ( 86400 * 365 ) );
                 $this->noSourceLangHistory = true;
             } else {
+
                 if ( $_COOKIE[ "sourceLang" ] != "_EMPTY_" ) {
                     $this->noSourceLangHistory = false;
                     $this->sourceLangHistory   = $_COOKIE[ "sourceLang" ];
@@ -129,11 +139,6 @@ class newProjectController extends viewController {
         $intDir = INIT::$UPLOAD_REPOSITORY . '/' . $this->guid . '/';
         if ( !is_dir( $intDir ) ) {
             mkdir( $intDir, 0775, true );
-
-            // ANTONIO: le due istruzioni seguenti non funzionano
-            // ma sarebbe opportuno che i permessi fossero quelli indicati nelle istruzioni in oggetto
-            //chown($intDir, "matecat");
-            //chgrp($intDir, "matecat");
         }
 
         // check if user is logged and generate authURL for logging in
@@ -143,12 +148,26 @@ class newProjectController extends viewController {
 
         $this->mt_engines  = getEngines( 'MT' );
         $this->tms_engines = getEngines( 'TM' );
-    }
 
-    public function sortByOrder( $a, $b ) {
-        return strcmp( $a[ "name" ], $b[ "name" ] );
+        if ( $this->isLoggedIn() ) {
 
-        //    	return $b['name'] - $a['name'];
+            try {
+
+                $_keyList = new TmKeyManagement_MemoryKeyDao( Database::obtain() );
+                $dh       = new TmKeyManagement_MemoryKeyStruct( array( 'uid' => @$_SESSION[ 'uid' ] ) );
+
+                $keyList = $_keyList->read( $dh );
+                foreach ( $keyList as $memKey ) {
+                    //all keys are available in this condition ( we are creating a project
+                    $this->keyList[ ] = $memKey->tm_key;
+                }
+
+            } catch ( Exception $e ) {
+                Log::doLog( $e->getMessage() );
+            }
+
+        }
+
     }
 
     public function array_sort_by_column( &$arr, $col, $dir = SORT_ASC ) {
@@ -261,17 +280,19 @@ class newProjectController extends viewController {
 //            }
 //        }
 
+        $this->template->page = 'home';
         $this->template->source_languages = $source_languages;
         $this->template->target_languages = $target_languages;
+        $this->template->subjects = $this->subjectArray;
 
-        $this->template->upload_session_id  = $this->guid;
+        $this->template->upload_session_id = $this->guid;
 
-        if( @(bool)$_GET['amt'] == true ){
+        if ( @(bool)$_GET[ 'amt' ] == true ) {
             $this->template->mt_engines = $this->mt_engines;
-        } else{
+        } else {
             $this->template->mt_engines = array();
         }
-        
+
         $this->template->tms_engines        = $this->tms_engines;
         $this->template->conversion_enabled = INIT::$CONVERSION_ENABLED;
 
@@ -299,8 +320,10 @@ class newProjectController extends viewController {
 
         $this->template->incomingURL = $this->incomingUrl;
         $this->template->authURL     = $this->authURL;
+
+        $this->template->user_keys = $this->keyList;
+
     }
 
 }
 
-?>

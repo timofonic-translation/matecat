@@ -20,7 +20,7 @@ class analyzeController extends viewController {
      *
      * @var string
      */
-    protected $_outsource_login_API =  '//signin.translated.net/';
+    protected $_outsource_login_API = '//signin.translated.net/';
 
     private $pid;
     private $ppassword;
@@ -47,6 +47,8 @@ class analyzeController extends viewController {
     private $project_status = "";
     private $num_segments = 0;
     private $num_segments_analyzed = 0;
+    private $proj_payable_rates;
+    private $subject;
 
     public function __construct() {
 
@@ -64,9 +66,9 @@ class analyzeController extends viewController {
 
         $postInput = filter_input_array( INPUT_GET, $filterArgs );
 
-        $this->pid = $postInput['pid'];
-        $this->jid = $postInput['jid'];
-        $pass      = $postInput['password'];
+        $this->pid = $postInput[ 'pid' ];
+        $this->jid = $postInput[ 'jid' ];
+        $pass      = $postInput[ 'password' ];
 
         if ( !empty( $this->jid ) ) {
             parent::makeTemplate( "jobAnalysis.html" );
@@ -91,7 +93,15 @@ class analyzeController extends viewController {
             $this->project_not_found = true;
         }
 
+        //pick the project subject from the first job
+        if ( count( $project_by_jobs_data ) > 0 ) {
+            $this->subject = $project_by_jobs_data[ 0 ][ 'subject' ];
+        }
+
         foreach ( $project_by_jobs_data as &$p_jdata ) {
+
+            //json_decode payable rates
+            $p_jdata[ 'payable_rates' ] = json_decode( $p_jdata[ 'payable_rates' ], true );
 
             $this->num_segments += $p_jdata[ 'total_segments' ];
             if ( empty( $this->pname ) ) {
@@ -153,6 +163,7 @@ class analyzeController extends viewController {
             $target_short = $p_jdata[ 'target' ];
             $password     = $p_jdata[ 'jpassword' ];
 
+
             unset( $p_jdata[ 'name' ] );
             unset( $p_jdata[ 'source' ] );
             unset( $p_jdata[ 'target' ] );
@@ -172,6 +183,7 @@ class analyzeController extends viewController {
                 $this->jobs[ $p_jdata[ 'jid' ] ][ 'chunks' ][ $password ][ 'jpassword' ]    = $password;
                 $this->jobs[ $p_jdata[ 'jid' ] ][ 'chunks' ][ $password ][ 'source_short' ] = $source_short;
                 $this->jobs[ $p_jdata[ 'jid' ] ][ 'chunks' ][ $password ][ 'target_short' ] = $target_short;
+                $this->jobs[ $p_jdata[ 'jid' ] ][ 'rates' ]                                 = $p_jdata[ 'payable_rates' ];
 
                 if ( !array_key_exists( "total_raw_word_count", $this->jobs[ $p_jdata[ 'jid' ] ] ) ) {
                     $this->jobs[ $p_jdata[ 'jid' ] ][ 'chunks' ][ $password ][ 'total_raw_word_count' ] = 0;
@@ -199,7 +211,6 @@ class analyzeController extends viewController {
             $this->jobs[ $p_jdata[ 'jid' ] ][ 'splitted' ] = ( count( $this->jobs[ $p_jdata[ 'jid' ] ][ 'chunks' ] ) > 1 ? 'splitted' : '' );
 
         }
-
 
         $raw_wc_time  = $this->total_raw_word_count / INIT::$ANALYSIS_WORDS_PER_DAYS;
         $tm_wc_time   = $this->tm_analysis_wc / INIT::$ANALYSIS_WORDS_PER_DAYS;
@@ -290,6 +301,7 @@ class analyzeController extends viewController {
 
     public function setTemplateVars() {
 
+
         $this->template->jobs                       = $this->jobs;
         $this->template->fast_analysis_wc           = $this->fast_analysis_wc;
         $this->template->fast_analysis_wc_print     = $this->fast_analysis_wc_print;
@@ -318,6 +330,10 @@ class analyzeController extends viewController {
         $this->template->build_number               = INIT::$BUILD_NUMBER;
         $this->template->enable_outsource           = INIT::$ENABLE_OUTSOURCE;
         $this->template->outsource_service_login    = $this->_outsource_login_API;
+
+        $langDomains = langs_LanguageDomains::getInstance();
+        $this->subject = $langDomains::getDisplayDomain($this->subject);
+        $this->template->subject                    = $this->subject;
 
         $this->template->isLoggedIn = $this->isLoggedIn();
 

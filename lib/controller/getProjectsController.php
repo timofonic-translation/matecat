@@ -100,6 +100,7 @@ class getProjectsController extends ajaxController {
         if ( is_null( $postInput[ 'step' ] ) || empty( $postInput[ 'step' ] ) ) {
             $postInput[ 'step' ] = 25;
         }
+
         if ( is_null( $postInput[ 'status' ] ) || empty( $postInput[ 'status' ] ) ) {
             $postInput[ 'status' ] = Constants_JobStatus::STATUS_ACTIVE;
         }
@@ -125,6 +126,8 @@ class getProjectsController extends ajaxController {
         }
 
         $projects = ManageUtils::queryProjects( $start, $this->step, $this->search_in_pname, $this->search_source, $this->search_target, $this->search_status, $this->search_onlycompleted, $this->filter_enabled, $this->project_id );
+
+//        Log::doLog( $projects );
 
         $projnum = getProjectsNumber( $start, $this->step, $this->search_in_pname, $this->search_source, $this->search_target, $this->search_status, $this->search_onlycompleted, $this->filter_enabled );
 

@@ -10,41 +10,39 @@
  * Class DataAccess_MemoryKeyDao<br/>
  * This class handles the communication with the corresponding table in the database using a CRUD interface
  */
-class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
+class TmKeyManagement_MemoryKeyDao extends DataAccess_AbstractDao {
+
     const TABLE = "memory_keys";
 
     const STRUCT_TYPE = "TmKeyManagement_MemoryKeyStruct";
 
     /**
-     * @param DataAccess_IDaoStruct $obj
+     * @param TmKeyManagement_MemoryKeyStruct $obj
      *
      * @return TmKeyManagement_MemoryKeyStruct|null The inserted object on success, null otherwise
      * @throws Exception
      */
-    public function create( DataAccess_IDaoStruct $obj ) {
+    public function create( TmKeyManagement_MemoryKeyStruct $obj ) {
         $obj = $this->sanitize( $obj );
 
-        $this->validateNotNullFields( $obj );
+        $this->_validateNotNullFields( $obj );
 
         $query = "INSERT INTO " . self::TABLE .
-                " (gid, uid, owner_uid, key_value, key_name, key_tm, key_glos, group_grants, creation_date)
-                VALUES (%s, %d, %d, '%s', '%s', %s, %s, '%s', NOW())";
+                " (uid, key_value, key_name, key_tm, key_glos, creation_date)
+                VALUES ( %d, '%s', '%s', '%s', %s, NOW())";
 
         $query = sprintf(
                 $query,
-                ( $obj->gid == null ) ? 0 : $obj->gid,
                 (int)$obj->uid,
-                (int)$obj->owner_uid,
                 $obj->tm_key->key,
                 ( $obj->tm_key->name == null ) ? '' : $obj->tm_key->name,
                 ( $obj->tm_key->tm == null ) ? 1 : $obj->tm_key->tm,
-                ( $obj->tm_key->glos == null ) ? 1 : $obj->tm_key->glos,
-                ( $obj->grants == null ) ? "rw" : $obj->grants
+                ( $obj->tm_key->glos == null ) ? 1 : $obj->tm_key->glos
         );
 
         $this->con->query( $query );
 
-        $this->checkForErrors();
+        $this->_checkForErrors();
 
         //return the inserted object on success, null otherwise
         if ( $this->con->affected_rows > 0 ) {
@@ -60,33 +58,19 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
      * @return array|void
      * @throws Exception
      */
-    public function read( DataAccess_IDaoStruct $obj ) {
+    public function read( TmKeyManagement_MemoryKeyStruct $obj ) {
         $obj = $this->sanitize( $obj );
 
         $where_conditions = array();
-        $query            = "SELECT gid, uid, owner_uid,
+        $query            = "SELECT uid,
                                     key_value,
                                     key_name,
                                     key_tm AS tm,
-                                    key_glos AS glos,
-                                    group_grants
+                                    key_glos AS glos
                              FROM " . self::TABLE . " WHERE %s";
 
         if ( $obj->uid !== null ) {
             $where_conditions[ ] = "uid = " . $obj->uid;
-        }
-
-        if ( $obj->gid !== null ) {
-            $where_conditions[ ] = "gid = " . $obj->gid;
-        }
-
-        if ( $obj->owner_uid !== null ) {
-            $where_conditions[ ] = "owner_uid = " . $obj->owner_uid;
-        }
-
-        if ( $obj->grants !== null ) {
-            $condition           = "group_grants = '%s'";
-            $where_conditions[ ] = sprintf( $condition, $obj->grants );
         }
 
         //tm_key conditions
@@ -114,7 +98,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
         }
 
         if ( count( $where_conditions ) ) {
-            $where_string = implode( " and ", $where_conditions );
+            $where_string = implode( " AND ", $where_conditions );
         } else {
             throw new Exception( "Where condition needed." );
         }
@@ -123,37 +107,37 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
 
         $arr_result = $this->con->fetch_array( $query );
 
-        $this->checkForErrors();
+        $this->_checkForErrors();
 
-        return $this->buildResult( $arr_result );
+        return $this->_buildResult( $arr_result );
     }
 
     /**
-     * @param DataAccess_IDaoStruct $obj
+     * @param TmKeyManagement_MemoryKeyStruct $obj
      *
      * @return bool|void
      * @throws Exception
      */
-    public function update( DataAccess_IDaoStruct $obj ) {
+    public function update( TmKeyManagement_MemoryKeyStruct $obj ) {
         $obj = $this->sanitize( $obj );
 
-        $this->validatePrimaryKey( $obj );
+        $this->_validatePrimaryKey( $obj );
 
         $set_array        = array();
         $where_conditions = array();
-        $query            = "update " . self::TABLE . " set %s where %s";
+        $query            = "UPDATE " . self::TABLE . " SET %s WHERE %s";
 
         $where_conditions[ ] = "uid = " . $obj->uid;
-        $where_conditions[ ] = "gid = " . $obj->gid;
         $where_conditions[ ] = "key_value = '" . $obj->tm_key->key . "'";
 
-//        if ( $obj->owner_uid !== null ) {
-//            $set_array[ ] = "owner_uid = " . $obj->owner_uid;
-//        }
+        if ( $obj->r !== null ) {
+            $condition    = "read_grants = %d";
+            $set_array[ ] = sprintf( $condition, $obj->r );
+        }
 
-        if ( $obj->grants !== null ) {
-            $condition    = "group_grants = '%s'";
-            $set_array[ ] = sprintf( $condition, $obj->grants );
+        if ( $obj->w !== null ) {
+            $condition    = "write_grants = %d";
+            $set_array[ ] = sprintf( $condition, $obj->w );
         }
 
         //tm_key conditions
@@ -176,7 +160,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
         }
 
         $set_string   = null;
-        $where_string = implode( " and ", $where_conditions );
+        $where_string = implode( " AND ", $where_conditions );
 
         if ( count( $set_array ) ) {
             $set_string = implode( ", ", $set_array );
@@ -188,7 +172,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
 
         $this->con->query( $query );
 
-        $this->checkForErrors();
+        $this->_checkForErrors();
 
         if ( $this->con->affected_rows > 0 ) {
             return $obj;
@@ -198,7 +182,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
     }
 
     /**
-     * @param $obj_arr An array of TmKeyManagement_MemoryKeyStruct objects
+     * @param $obj_arr TmKeyManagement_MemoryKeyStruct[] An array of TmKeyManagement_MemoryKeyStruct objects
      *
      * @return array|null The input array on success, null otherwise
      * @throws Exception
@@ -207,10 +191,10 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
         $obj_arr = $this->sanitizeArray( $obj_arr );
 
         $query = "INSERT INTO " . self::TABLE .
-                " (gid, uid, owner_uid, key_value, key_name, key_tm, key_glos, group_grants, creation_date)
+                " ( uid, key_value, key_name, key_tm, key_glos, creation_date)
                 VALUES %s;";
 
-        $tuple_template = "(%s, %d, %d, '%s', '%s', %s, %s, '%s', NOW())";
+        $tuple_template = "(%d, '%s', '%s', %d, %d, NOW())";
 
         $values = array();
 
@@ -227,14 +211,11 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
                 //fill values array
                 $values[ ] = sprintf(
                         $tuple_template,
-                        ( $obj->gid == null ) ? 0 : $obj->gid,
                         (int)$obj->uid,
-                        (int)$obj->owner_uid,
                         $obj->tm_key->key,
                         ( $obj->tm_key->name == null ) ? '' : $obj->tm_key->name,
                         ( $obj->tm_key->tm == null ) ? 1 : $obj->tm_key->tm,
-                        ( $obj->tm_key->glos == null ) ? 1 : $obj->tm_key->glos,
-                        ( $obj->grants == null ) ? "rw" : $obj->grants
+                        ( $obj->tm_key->glos == null ) ? 1 : $obj->tm_key->glos
                 );
             }
 
@@ -251,7 +232,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
         //commit transaction
         $this->con->commit();
 
-        $this->checkForErrors();
+        $this->_checkForErrors();
 
         if ( $this->con->affected_rows > 0 ) {
             return $obj_arr;
@@ -285,15 +266,11 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
 
         $set_array        = array();
         $where_conditions = array();
-        $query            = "update " . self::TABLE . " set %s where %s";
+        $query            = "UPDATE " . self::TABLE . " SET %s WHERE %s";
 
         //compose where condition
         if ( $obj->uid !== null ) {
             $where_conditions[ ] = "uid = " . $obj->uid;
-        }
-
-        if ( $obj->gid !== null ) {
-            $where_conditions[ ] = "gid = " . $obj->gid;
         }
 
         if ( $obj->tm_key->key !== null ) {
@@ -301,13 +278,18 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
         }
 
         //throw exception if where condition is empty
-        if( !count($where_conditions) ) {
-            throw new Exception("You must set at least one field of the following: uid, gid, tm_key->key");
+        if ( !count( $where_conditions ) ) {
+            throw new Exception( "You must set at least one field of the following: uid, gid, tm_key->key" );
         }
 
-        if ( $obj->grants !== null ) {
-            $condition    = "group_grants = '%s'";
-            $set_array[ ] = sprintf( $condition, $obj->grants );
+        if ( $obj->r !== null ) {
+            $condition    = "read_grants = %d";
+            $set_array[ ] = sprintf( $condition, $obj->r );
+        }
+
+        if ( $obj->w !== null ) {
+            $condition    = "write_grants = %d";
+            $set_array[ ] = sprintf( $condition, $obj->w );
         }
 
         //tm_key settings
@@ -330,7 +312,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
         }
 
         $set_string   = null;
-        $where_string = implode( " and ", $where_conditions );
+        $where_string = implode( " AND ", $where_conditions );
 
         if ( count( $set_array ) ) {
             $set_string = implode( ", ", $set_array );
@@ -342,7 +324,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
 
         $this->con->query( $query );
 
-        $this->checkForErrors();
+        $this->_checkForErrors();
 
         if ( $this->con->affected_rows > 0 ) {
             return $obj;
@@ -358,23 +340,23 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
      * @throws Exception
      */
     private function __updateList( Array $obj_arr ) {
+
         $obj_arr = $this->sanitizeArray( $obj_arr );
 
         $query = "INSERT INTO " . self::TABLE .
-                " (gid, uid, owner_uid, key_value, key_name, key_tm, key_glos, group_grants, creation_date)
+                " (uid, key_value, key_name, key_tm, key_glos, read_grants, write_grants, creation_date)
                 VALUES %s
                 ON DUPLICATE KEY UPDATE
-                gid = gid,
                 uid = uid,
-                owner_uid = owner_uid,
                 key_value = key_value,
                 key_name = VALUES(key_name),
                 key_tm = key_tm,
                 key_glos = key_glos,
-                group_grants = VALUES(group_grants),
+                read_grants = VALUES(read_grants),
+                write_grants = VALUES(write_grants),
                 creation_date = NOW();";
 
-        $tuple_template = "(%s, %d, %d, '%s', '%s', %s, %s, '%s', NOW())";
+        $tuple_template = "(%d, '%s', '%s', %s, %s, %d, %d, NOW())";
 
         $values = array();
 
@@ -391,14 +373,13 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
                 //fill values array
                 $values[ ] = sprintf(
                         $tuple_template,
-                        ( $obj->gid == null ) ? 0 : $obj->gid,
                         (int)$obj->uid,
-                        (int)$obj->owner_uid,
                         $obj->tm_key->key,
                         ( $obj->tm_key->name == null ) ? '' : $obj->tm_key->name,
                         ( $obj->tm_key->tm == null ) ? 1 : $obj->tm_key->tm,
                         ( $obj->tm_key->glos == null ) ? 1 : $obj->tm_key->glos,
-                        ( $obj->grants == null ) ? "rw" : $obj->grants
+                        ( $obj->r == null ) ? true : $obj->r,
+                        ( $obj->w == null ) ? true : $obj->w
                 );
             }
 
@@ -415,7 +396,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
         //commit transaction
         $this->con->commit();
 
-        $this->checkForErrors();
+        $this->_checkForErrors();
 
         if ( $this->con->affected_rows > 0 ) {
             return $obj_arr;
@@ -435,7 +416,7 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
      * @throws Exception
      */
     public static function sanitize( $input ) {
-        return parent::sanitizeInput( $input, self::STRUCT_TYPE );
+        return parent::_sanitizeInput( $input, self::STRUCT_TYPE );
     }
 
     /**
@@ -446,56 +427,48 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
      *
      * @return array
      */
-    public static function sanitizeArray( $input ) {
-        return parent::sanitizeArray( $input, self::STRUCT_TYPE ); // TODO: Change the autogenerated stub
+    public static function sanitizeArray( Array $input ) {
+        return parent::_sanitizeInputArray( $input, self::STRUCT_TYPE );
     }
 
     /**
      * See in DataAccess_AbstractDao::validatePrimaryKey
-     * @see DataAccess_AbstractDao::validatePrimaryKey
+     * @see DataAccess_AbstractDao::_validatePrimaryKey
      *
      * @param TmKeyManagement_MemoryKeyStruct $obj
      *
+     * @return void
      * @throws Exception
      */
-    protected function validatePrimaryKey( DataAccess_IDaoStruct $obj ) {
+    protected function _validatePrimaryKey( TmKeyManagement_MemoryKeyStruct $obj ) {
 
         /**
          * @var $obj TmKeyManagement_MemoryKeyStruct
          */
-
-        if ( is_null( $obj->gid ) ) {
-            throw new Exception( "Gid cannot be null" );
-        }
-
-        if ( is_null( $obj->uid ) ) {
-            throw new Exception( "Uid cannot be null" );
+        if ( is_null( $obj->uid ) || empty( $obj->uid ) ) {
+            throw new Exception( "Invalid Uid" );
         }
 
         if ( is_null( $obj->tm_key->key ) ) {
-            throw new Exception( "Key value cannot be null" );
+            throw new Exception( "Invalid Key value" );
         }
 
     }
 
     /**
      * See in DataAccess_AbstractDao::validateNotNullFields
-     * @see DataAccess_AbstractDao::validateNotNullFields
+     * @see DataAccess_AbstractDao::_validateNotNullFields
      *
      * @param TmKeyManagement_MemoryKeyStruct $obj
      *
+     * @return null
      * @throws Exception
      */
-    protected function validateNotNullFields( DataAccess_IDaoStruct $obj ) {
+    protected function _validateNotNullFields( TmKeyManagement_MemoryKeyStruct $obj ) {
         /**
          * @var $obj TmKeyManagement_MemoryKeyStruct
          */
-
-        if ( is_null( $obj->gid ) ) {
-            throw new Exception( "Gid cannot be null" );
-        }
-
-        if ( is_null( $obj->uid ) ) {
+        if ( is_null( $obj->uid ) || empty( $obj->uid ) ) {
             throw new Exception( "Uid cannot be null" );
         }
 
@@ -503,37 +476,28 @@ class DataAccess_MemoryKeyDao extends DataAccess_AbstractDao {
             throw new Exception( "Key value cannot be null" );
         }
 
-        if ( is_null( $obj->owner_uid ) ) {
-            throw new Exception( "Owner uid cannot be null" );
-        }
-
-        if ( is_null( $obj->grants ) ) {
-            throw new Exception( "Group grants cannot be null" );
-        }
     }
 
     /**
-     * Builds an array with a resultset according to the data structure it handles.
+     * Builds an array with a result set according to the data structure it handles.
      *
      * @param $array_result array A result array obtained by a MySql query
      *
-     * @return array An array containing TmKeyManagement_MemoryKeyStruct objects
+     * @return TmKeyManagement_MemoryKeyStruct[] An array containing TmKeyManagement_MemoryKeyStruct objects
      */
-    protected function buildResult( $array_result ) {
+    protected function _buildResult( $array_result ) {
         $result = array();
 
         foreach ( $array_result as $item ) {
 
             $build_arr = array(
                     'uid'       => $item[ 'uid' ],
-                    'gid'       => $item[ 'gid' ],
-                    'owner_uid' => $item[ 'owner_uid' ],
-                    'grants'    => (string)$item[ 'group_grants' ],
-                    'tm_key'    => array(
-                            'key'  => (string)$item[ 'key_value' ],
-                            'name' => (string)$item[ 'key_name' ],
-                            'tm'   => (bool)$item[ 'tm' ],
-                            'glos' => (bool)$item[ 'glos' ]
+                    'tm_key'    => new TmKeyManagement_TmKeyStruct( array(
+                                    'key'  => (string)$item[ 'key_value' ],
+                                    'name' => (string)$item[ 'key_name' ],
+                                    'tm'   => (bool)$item[ 'tm' ],
+                                    'glos' => (bool)$item[ 'glos' ]
+                            )
                     )
             );
 

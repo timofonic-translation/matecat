@@ -75,6 +75,7 @@ class deleteContributionController extends ajaxController {
         }
 
         $this->tm_keys      = $job_data[ 'tm_keys' ];
+        $this->checkLogin();
 
         $config = TMS::getConfigStruct();
 
@@ -90,7 +91,21 @@ class deleteContributionController extends ajaxController {
 
         //get job's TM keys
         try{
-            $tm_keys = TmKeyManagement_TmKeyManagement::getJobTmKeys($this->tm_keys, 'r', 'tm');
+
+            $_from_url = parse_url( @$_SERVER['HTTP_REFERER'] );
+            $url_request = strpos( $_from_url['path'] , "/revise" ) === 0;
+
+            $tm_keys = $this->tm_keys;
+
+            if ( $url_request ) {
+                $this->userRole = TmKeyManagement_Filter::ROLE_REVISOR;
+            } elseif( $this->userMail == $job_data['owner'] ){
+                $tm_keys = TmKeyManagement_TmKeyManagement::getOwnerKeys( array($tm_keys), 'r', 'tm' );
+                $tm_keys = json_encode( $tm_keys );
+            }
+
+            //get TM keys with read grants
+            $tm_keys = TmKeyManagement_TmKeyManagement::getJobTmKeys( $tm_keys, 'r', 'tm', $this->uid, $this->userRole );
 
             if ( is_array( $tm_keys ) && !empty( $tm_keys ) ) {
                 foreach ( $tm_keys as $tm_key ) {
@@ -109,23 +124,33 @@ class deleteContributionController extends ajaxController {
 
         /**
          * @var $tm_key TmKeyManagement_TmKeyStruct
-         */
-        foreach ( $tm_keys as $tm_key ) {
-            $config[ 'id_user' ] = $tm_key->key;
-            $TMS_RESULT = $tms->delete( $config );
-            $set_code[ ] = $TMS_RESULT;
-        }
+		 */
 
-        $set_successful = true;
-        if( array_search( false, $set_code, true ) ){
-            //There's an error
-            $set_successful = false;
-        }
+		//if there's no key
+		if(empty($tm_keys)){
+			//try deleting anyway, it may be a public segment and it may work
+			$TMS_RESULT = $tms->delete( $config );
+			$set_code[ ] = $TMS_RESULT;
+		}else{
+			//loop over the list of keys
+			foreach ( $tm_keys as $tm_key ) {
+				//issue a separate call for each key
+				$config[ 'id_user' ] = $tm_key->key;
+				$TMS_RESULT = $tms->delete( $config );
+				$set_code[ ] = $TMS_RESULT;
+			}
+		}
 
-        $this->result[ 'data' ] = ( $set_successful ? "OK" : null );
-        $this->result[ 'code' ] = $set_successful;
+		$set_successful = true;
+		if( array_search( false, $set_code, true ) ){
+			//There's an error
+			$set_successful = false;
+		}
 
-    }
+		$this->result[ 'data' ] = ( $set_successful ? "OK" : null );
+		$this->result[ 'code' ] = $set_successful;
+
+	}
 
 
 }

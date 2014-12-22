@@ -116,6 +116,7 @@ while ( 1 ) {
     $id_translator   = $segment[ 'id_translator' ];
     $raw_wc          = $segment[ 'raw_word_count' ];
     $fast_match_type = $segment[ 'match_type' ];
+    $payable_rates   = $segment[ 'payable_rates' ];
 
     $text = $segment[ 'segment' ];
 
@@ -174,20 +175,18 @@ while ( 1 ) {
 
         $tms_enabled = true;
 
-    } else {
-        if ( $id_tms == 0 && $id_mt_engine == 1 ) {
-            /**
-             * MyMemory disabled but MT Enabled and it is NOT a Custom one
-             * So tell to MyMemory to get MT only
-             */
-            $config[ 'get_mt' ]  = true;
-            $config[ 'mt_only' ] = true;
+    } elseif ( $id_tms == 0 && $id_mt_engine == 1 ) {
+        /**
+         * MyMemory disabled but MT Enabled and it is NOT a Custom one
+         * So tell to MyMemory to get MT only
+         */
+        $config[ 'get_mt' ]  = true;
+        $config[ 'mt_only' ] = true;
 
-            $_TMS = 1; /* MyMemory */
+        $_TMS = 1; /* MyMemory */
 
-            $tms_enabled = true;
+        $tms_enabled = true;
 
-        }
     }
 
     /*
@@ -302,6 +301,8 @@ while ( 1 ) {
     $suggestion_match  = $matches[ 0 ][ 'match' ];
     $suggestion_json   = json_encode( $matches );
     $suggestion_source = $matches[ 0 ][ 'created_by' ];
+
+    $equivalentWordMapping = json_decode($payable_rates, true);
 
     $new_match_type = getNewMatchType( $tm_match_type, $fast_match_type, $equivalentWordMapping );
     //echo "sid is $sid ";
@@ -438,7 +439,7 @@ function getNewMatchType( $tm_match_type, $fast_match_type, $equivalentWordMappi
             $tm_rate_paid = $equivalentWordMapping[ "NO_MATCH" ];
         }
 
-        if ( $ind >= 50 and $ind <= 74 ) {
+        if ( $ind >= 50 and $ind < 75 ) {
             $tm_match_cat = "50%-74%";
             $tm_rate_paid = $equivalentWordMapping[ "50%-74%" ];
         }
@@ -448,11 +449,10 @@ function getNewMatchType( $tm_match_type, $fast_match_type, $equivalentWordMappi
             $tm_rate_paid = $equivalentWordMapping[ "75%-99%" ];
         }
     }
-
-    if ( $tm_rate_paid <= $fast_rate_paid ) {
+    //this is because 50%-74% is never returned because it's rate equals NO_MATCH
+    if ($tm_rate_paid < $fast_rate_paid || $fast_match_type == "NO_MATCH" ) {
         return $tm_match_cat;
     }
-
     return $fast_match_type;
 }
 

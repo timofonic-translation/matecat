@@ -20,6 +20,9 @@ abstract class ajaxController extends controller {
      */
     protected $result = array("error" => array(), "data" => array());
 
+    protected $uid;
+    protected $userIsLogged = false;
+    protected $userMail;
 
     /**
      * Class constructor, initialize the header content type.
@@ -76,6 +79,19 @@ abstract class ajaxController extends controller {
         }
 
         echo $toJson;
+    }
+
+    public function checkLogin( $close = true ) {
+        //Warning, sessions enabled, disable them after check, $_SESSION is in read only mode after disable
+        parent::sessionStart();
+        $this->userIsLogged = ( isset( $_SESSION[ 'cid' ] ) && !empty( $_SESSION[ 'cid' ] ) );
+        $this->userMail     = ( isset( $_SESSION[ 'cid' ] ) && !empty( $_SESSION[ 'cid' ] ) ? $_SESSION[ 'cid' ] : null );
+        $this->uid          = ( isset( $_SESSION[ 'uid' ] ) && !empty( $_SESSION[ 'uid' ] ) ? $_SESSION[ 'uid' ] : null );
+
+        if ( $close ) {
+            parent::disableSessions();
+        }
+        
     }
 
 }

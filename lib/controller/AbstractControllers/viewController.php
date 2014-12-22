@@ -48,7 +48,7 @@ abstract class viewController extends controller {
      */
     private function getBrowser() {
         $u_agent  = $_SERVER[ 'HTTP_USER_AGENT' ];
-log::doLog ("bname uagent " . $_SERVER[ 'HTTP_USER_AGENT' ]);
+
 	    $bname    = 'Unknown';
         $platform = 'Unknown';
         $version  = "";
@@ -93,8 +93,7 @@ log::doLog ("bname uagent " . $_SERVER[ 'HTTP_USER_AGENT' ]);
         }
         // finally get the correct version number
         $known   = array( 'Version', $ub, 'other' );
-        $pattern = '#(?<browser>' . join( '|', $known ) .
-                ')[/ ]+(?<version>[0-9.|a-zA-Z.]*)#';
+        $pattern = '#(?<browser>' . join( '|', $known ) . ')[/ ]+(?<version>[0-9.|a-zA-Z.]*)#';
         if ( !preg_match_all( $pattern, $u_agent, $matches ) ) {
             // we have no matching number just continue
         }
@@ -155,7 +154,8 @@ log::doLog ("bname uagent " . $_SERVER[ 'HTTP_USER_AGENT' ]);
             //log::doLog(get_class($this)." requires check for login");
             $username_from_cookie = AuthCookie::getCredentials();
             if ( $username_from_cookie ) {
-                $_SESSION[ 'cid' ] = $username_from_cookie;
+                $_SESSION[ 'cid' ] = $username_from_cookie['username'];
+                $_SESSION[ 'uid' ] = $username_from_cookie['uid'];
             }
 
         }
@@ -178,7 +178,6 @@ log::doLog ("bname uagent " . $_SERVER[ 'HTTP_USER_AGENT' ]);
      * @return bool
      */
     private function doAuth() {
-
         //prepare redirect flag
         $mustRedirectToLogin = false;
 
@@ -210,7 +209,22 @@ log::doLog ("bname uagent " . $_SERVER[ 'HTTP_USER_AGENT' ]);
      * @return bool
      */
     public function isLoggedIn() {
-        return ( isset( $_SESSION[ 'cid' ] ) && !empty( $_SESSION[ 'cid' ] ) );
+        return (
+                ( isset( $_SESSION[ 'cid' ] ) && !empty( $_SESSION[ 'cid' ] ) ) &&
+                ( isset( $_SESSION[ 'uid' ] ) && !empty( $_SESSION[ 'uid' ] ) )
+        );
+    }
+
+    /**
+     * GatUser Login Info
+     *
+     * @return bool
+     */
+    public function getLoginUserParams() {
+        if ( $this->isLoggedIn() ){
+            return array( $_SESSION['uid'], $_SESSION['cid'] );
+        }
+        return array( null, null );
     }
 
     /**
@@ -230,7 +244,7 @@ log::doLog ("bname uagent " . $_SERVER[ 'HTTP_USER_AGENT' ]);
 */
         foreach ( INIT::$ENABLED_BROWSERS as $enabled_browser ) {
             if ( stripos( $browser_name, $enabled_browser ) !== false ) {
-		return 1;
+                return 1;
             }
         }
 

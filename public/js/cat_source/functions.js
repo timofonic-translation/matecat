@@ -188,7 +188,7 @@ function pasteHtmlAtCaret(html, selectPastedContent) {
     }
 }
 
-function setCursorPosition(el, pos) {console.log('el: ', el);
+function setCursorPosition(el, pos) {
 	pos = pos || 0;
 	var range = document.createRange();
 	var sel = window.getSelection();
@@ -257,7 +257,7 @@ function fileUpload(form, action_url, div_id) {
 
         // Del the iframe...
         setTimeout('iframeId.parentNode.removeChild(iframeId)', 250);
-    }
+    };
 
     if (iframeId.addEventListener) iframeId.addEventListener("load", eventHandler, true);
     if (iframeId.attachEvent) iframeId.attachEvent("onload", eventHandler);
@@ -290,7 +290,12 @@ function fileUpload(form, action_url, div_id) {
 console.log('TMKey 1: ', TMKey);
     console.log('TMName 1: ', TMName);
 //    UI.pollForUploadProgress(TMKey, TMName);
-    UI.pollForUploadCallback(TMKey, TMName);
+
+    //delay because server can take some time to process large file
+    setTimeout(function() {
+        UI.pollForUploadCallback(TMKey, TMName);
+    }, 3000);
+
 }
 
 function stripHTML(dirtyString) {
@@ -509,7 +514,7 @@ function setBrowserHistoryBehavior() {
 }
 
 function goodbye(e) {
-	if ($('#downloadProject').hasClass('disabled')) {
+    if ($('#downloadProject').hasClass('disabled') || $( 'tr td a.downloading' ).length ) {
 		var dont_confirm_leave = 0; //set dont_confirm_leave to 1 when you want the user to be able to leave withou confirmation
 		var leave_message = 'You have a pending download. Are you sure you want to quit?';
 		if(dont_confirm_leave!==1) {
@@ -693,4 +698,16 @@ function capitaliseFirstLetter(string)
 function toTitleCase(str)
 {
     return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+}
+
+if (typeof String.prototype.startsWith != 'function') {
+    String.prototype.startsWith = function (str){
+        return this.indexOf(str) == 0;
+    };
+}
+
+if (typeof String.prototype.endsWith !== 'function') {
+    String.prototype.endsWith = function(suffix) {
+        return this.indexOf(suffix, this.length - suffix.length) !== -1;
+    };
 }

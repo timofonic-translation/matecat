@@ -48,6 +48,7 @@ class ProjectManager {
                             'file_references'      => array(),
                             'source_language'      => null,
                             'target_language'      => null,
+                            'job_subject'          => 'general',
                             'mt_engine'            => null,
                             'tms_engine'           => null,
                             'ppassword'            => null,
@@ -56,18 +57,20 @@ class ProjectManager {
                                     'job_pass'     => array(),
                                     'job_segments' => array()
                             ),
-                            'job_segments'         => array(), //array of job_id => array( min_seg, max_seg )
-                            'segments'             => array(), //array of files_id => segmentsArray()
-                            'translations'         => array(),
-                        //one translation for every file because translations are files related
-                            'query_translations'   => array(),
-                            'status'               => Constants_ProjectStatus::STATUS_NOT_READY_FOR_ANALYSIS,
-                            'job_to_split'         => null,
-                            'job_to_split_pass'    => null,
-                            'split_result'         => null,
-                            'job_to_merge'         => null,
-                            'lang_detect_files'    => array(),
-                            'tm_keys'              => array(),
+                            'job_segments'       => array(), //array of job_id => array( min_seg, max_seg )
+                            'segments'           => array(), //array of files_id => segmentsArray()
+                            'translations'       => array(),
+                            //one translation for every file because translations are files related
+                            'query_translations' => array(),
+                            'status'             => Constants_ProjectStatus::STATUS_NOT_READY_FOR_ANALYSIS,
+                            'job_to_split'       => null,
+                            'job_to_split_pass'  => null,
+                            'split_result'       => null,
+                            'job_to_merge'       => null,
+                            'lang_detect_files'  => array(),
+                            'tm_keys'            => array(),
+                            'userIsLogged'       => false,
+                            'uid'                => null,
                             'skip_lang_validation' => false
                     ) );
         }
@@ -75,7 +78,7 @@ class ProjectManager {
         $this->projectStructure = $projectStructure;
 
         //get the TMX management component from the factory
-        $this->tmxServiceWrapper = TMSServiceFactory::getTMXService( $this->projectStructure[ 'tms_engine' ] );
+        $this->tmxServiceWrapper = new TMSService();
 
         $this->langService = Languages::getInstance();
 
@@ -89,15 +92,13 @@ class ProjectManager {
         return $this->projectStructure;
     }
 
-    private function sortByStrLenAsc( $a, $b ) {
-        return strlen( $a ) >= strlen( $b );
-    }
 
     public function createProject() {
 
         // project name sanitize
         $oldName                                  = $this->projectStructure[ 'project_name' ];
         $this->projectStructure[ 'project_name' ] = $this->_sanitizeName( $this->projectStructure[ 'project_name' ] );
+
         if ( $this->projectStructure[ 'project_name' ] == false ) {
             $this->projectStructure[ 'result' ][ 'errors' ][ ] = array(
                     "code"    => -5,
@@ -114,32 +115,98 @@ class ProjectManager {
 
         $this->projectStructure[ 'id_project' ] = insertProject( $this->projectStructure );
 
+
         //create user (Massidda 2013-01-24)
-        //this is done only if an API key is provided
+        //check if all the keys are valid MyMemory keys
         if ( !empty( $this->projectStructure[ 'private_tm_key' ] ) ) {
 
-            $APIKeySrv = TMSServiceFactory::getAPIKeyService();
+            foreach ( $this->projectStructure[ 'private_tm_key' ] as $i => $_tmKey ) {
 
-            try {
+                $this->tmxServiceWrapper->setTmKey( $_tmKey[ 'key' ] );
 
-                if ( !$APIKeySrv->checkCorrectKey( $this->projectStructure[ 'private_tm_key' ] ) ) {
-                    throw new Exception( "Error: The TM private key provided is not valid.", -3 );
+                try {
+
+                    $this->tmxServiceWrapper->checkCorrectKey();
+
+                } catch ( Exception $e ) {
+
+                    $this->projectStructure[ 'result' ][ 'errors' ][ ] = array(
+                            "code" => $e->getCode(), "message" => $e->getMessage()
+                    );
+
+                    return false;
                 }
 
-            } catch ( Exception $e ) {
-                $this->projectStructure[ 'result' ][ 'errors' ][ ] = array(
-                        "code" => $e->getCode(), "message" => $e->getMessage()
-                );
+                //set the first key as primary
+                $this->tmxServiceWrapper->setTmKey( $this->projectStructure[ 'private_tm_key' ][ 0 ][ 'key' ] );
 
-                return false;
             }
+
+
+            //check if the MyMemory keys provided by the user are already associated to him.
+            if ( $this->projectStructure[ 'userIsLogged' ] ) {
+
+                $mkDao = new TmKeyManagement_MemoryKeyDao( $this->dbHandler );
+
+                $searchMemoryKey      = new TmKeyManagement_MemoryKeyStruct();
+                $searchMemoryKey->uid = $this->projectStructure[ 'uid' ];
+
+                $userMemoryKeys = $mkDao->read( $searchMemoryKey );
+
+                $userTmKeys             = array();
+                $memoryKeysToBeInserted = array();
+
+                //extract user tm keys
+                foreach ( $userMemoryKeys as $_memoKey ) {
+                    /**
+                     * @var $_memoKey TmKeyManagement_MemoryKeyStruct
+                     */
+
+                    $userTmKeys[ ] = $_memoKey->tm_key->key;
+                }
+
+                foreach ( $this->projectStructure[ 'private_tm_key' ] as $_tmKey ) {
+
+                    if ( !in_array( $_tmKey[ 'key' ], $userTmKeys ) ) {
+                        $newMemoryKey   = new TmKeyManagement_MemoryKeyStruct();
+                        $newTmKey       = new TmKeyManagement_TmKeyStruct();
+                        $newTmKey->key  = $_tmKey[ 'key' ];
+                        $newTmKey->tm   = true;
+                        $newTmKey->glos = true;
+                        //TODO: take this from input
+                        $newTmKey->name = $_tmKey[ 'name' ];
+
+                        $newMemoryKey->tm_key = $newTmKey;
+                        $newMemoryKey->uid    = $this->projectStructure[ 'uid' ];
+
+                        $memoryKeysToBeInserted[ ] = $newMemoryKey;
+                    } else {
+                        Log::doLog( 'skip insertion' );
+                    }
+
+                }
+                try {
+                    $mkDao->createList( $memoryKeysToBeInserted );
+                } catch( Exception $e ){
+                    Log::doLog( $e->getMessage() );
+
+                    # Here we handle the error, displaying HTML, logging, ...
+                    $output = "<pre>\n";
+                    $output .= $e->getMessage() . "\n\t";
+                    $output .= "</pre>";
+                    Utils::sendErrMailReport( $output );
+
+                }
+
+            }
+
 
             //the base case is when the user clicks on "generate private TM" button:
             //a (user, pass, key) tuple is generated and can be inserted
             //if it comes with it's own key without querying the creation API, create a (key,key,key) user
             if ( empty( $this->projectStructure[ 'private_tm_user' ] ) ) {
-                $this->projectStructure[ 'private_tm_user' ] = $this->projectStructure[ 'private_tm_key' ];
-                $this->projectStructure[ 'private_tm_pass' ] = $this->projectStructure[ 'private_tm_key' ];
+                $this->projectStructure[ 'private_tm_user' ] = $this->projectStructure[ 'private_tm_key' ][ 0 ][ 'key' ];
+                $this->projectStructure[ 'private_tm_pass' ] = $this->projectStructure[ 'private_tm_key' ][ 0 ][ 'key' ];
             }
 
             insertTranslator( $this->projectStructure );
@@ -168,20 +235,16 @@ class ProjectManager {
 
             //if TMX,
             if ( 'tmx' == pathinfo( $fileName, PATHINFO_EXTENSION ) ) {
-                //import the TMX, the check is deferred after this loop
-                Log::doLog( "loading \"$fileName\"" );
-                $import_outcome = $this->tmxServiceWrapper->import( "$uploadDir/$fileName", $this->projectStructure[ 'private_tm_key' ] );
-                if ( '400' == $import_outcome[ 'responseStatus' ] ) {
-                    $this->projectStructure[ 'result' ][ 'errors' ][ ] = array(
-                            "code" => -15, "message" => "Cant't load TMX files right now, try later"
-                    );
 
-                    return false;
-                }
-                if ( '403' == $import_outcome[ "responseStatus" ] ) {
+                $file            = new stdClass();
+                $file->file_path = "$uploadDir/$fileName";
+                $this->tmxServiceWrapper->setFile( array( $file ) );
+
+                try {
+                    $this->tmxServiceWrapper->addTmxInMyMemory();
+                } catch ( Exception $e ){
                     $this->projectStructure[ 'result' ][ 'errors' ][ ] = array(
-                            "code"    => -15,
-                            "message" => "Invalid key provided (" . $this->projectStructure[ 'private_tm_key' ] . ")"
+                            "code" => $e->getCode(), "message" => $e->getMessage()
                     );
 
                     return false;
@@ -309,7 +372,7 @@ class ProjectManager {
 
                 $this->_extractSegments( $contents, $fid );
 
-                unset($contents); //free memory
+                unset( $contents ); //free memory
 
                 //Log::doLog( $this->projectStructure['segments'] );
 
@@ -353,7 +416,9 @@ class ProjectManager {
         }
 
         //check if the files language equals the source language. If not, set an error message.
-        if (!$this->projectStructure['skip_lang_validation']) $this->validateFilesLanguages();
+        if ( !$this->projectStructure[ 'skip_lang_validation' ] ) {
+            $this->validateFilesLanguages();
+        }
 
         /****************/
         //loop again through files to check to check for TMX loading
@@ -361,66 +426,50 @@ class ProjectManager {
 
             //if TMX,
             if ( 'tmx' == pathinfo( $fileName, PATHINFO_EXTENSION ) ) {
+
+                $this->tmxServiceWrapper->setName( $fileName );
+
+                $result = array();
+
                 //is the TM loaded?
-                $loaded = false;
-
                 //wait until current TMX is loaded
-                while ( !$loaded ) {
-                    //now we repeatedly scan the list of loaded TMs
-                    //this counter is used to get the latest TM in case of duplicates
-                    $tmx_max_id = 0;
+                while ( true ) {
 
-                    //check if TM has been loaded
-                    $allMemories = $this->tmxServiceWrapper->getStatus( $this->projectStructure[ 'private_tm_key' ], $fileName );
+                    try {
 
-                    if ( "200" != $allMemories[ 'responseStatus' ] or 0 == count( $allMemories[ 'responseData' ][ 'tm' ] ) ) {
-                        //what the hell? No memories although I've just loaded some? Eject!
+                        $result = $this->tmxServiceWrapper->tmxUploadStatus();
+
+                        if ( $result[ 'completed' ] ) {
+
+                            //"$fileName" has been loaded into MyMemory"
+                            //exit the loop
+                            break;
+
+                        }
+
+                        //"waiting for "$fileName" to be loaded into MyMemory"
+                        sleep( 3 );
+
+                    } catch ( Exception $e ) {
+
                         $this->projectStructure[ 'result' ][ 'errors' ][ ] = array(
-                                "code" => -15, "message" => "Cant't load TMX files right now, try later"
+                                "code" => $e->getCode(), "message" => $e->getMessage()
                         );
 
+                        Log::doLog( $e->getMessage() . "\n" . $e->getTraceAsString() );
+
+                        //exit project creation
                         return false;
 
-                    }
-
-                    //scan through memories
-                    foreach ( $allMemories[ 'responseData' ][ 'tm' ] as $memory ) {
-                        //obtain max id
-                        $tmx_max_id = max( $tmx_max_id, $memory[ 'id' ] );
-
-                        //if maximum is current, pick it (it means that, among duplicates, it's the latest)
-                        if ( $tmx_max_id == $memory[ 'id' ] ) {
-                            $current_tm = $memory;
-                        }
-                    }
-
-                    switch ( $current_tm[ 'status' ] ) {
-                        case "0":
-                            //wait for the daemon to process it
-                            //THIS IS WRONG BY DESIGN, WE SHOULD NOT ACT AS AN ASYNCH DAEMON WHILE WE ARE IN A SYNCH APACHE PROCESS
-                            Log::doLog( "waiting for \"$fileName\" to be loaded into MyMemory" );
-                            sleep( 3 );
-                            break;
-                        case "1":
-                            //loaded (or error, in any case go ahead)
-                            Log::doLog( "\"$fileName\" has been loaded into MyMemory" );
-                            $loaded = true;
-                            break;
-                        default:
-                            $this->projectStructure[ 'result' ][ 'errors' ][ ] = array(
-                                    "code" => -14, "message" => "Invalid TMX ($fileName)"
-                            );
-
-                            return false;
-                            break;
                     }
 
                 }
 
                 //once the language is loaded, check if language is compliant (unless something useful has already been found)
                 if ( 1 == $this->checkTMX ) {
+
                     //get localized target languages of TM (in case it's a multilingual TM)
-                    $tmTargets = explode( ';', $current_tm[ 'target_lang' ] );
+                    $tmTargets = explode( ';', $result['data'][ 'target_lang' ] );
 
                     //indicates if something has been found for current memory
                     $found = false;
@@ -435,19 +484,24 @@ class ProjectManager {
                     }
 
                     //if this TM matches the project lagpair and something has been found
-                    if ( $found and $current_tm[ 'source_lang' ] == $this->langService->getLocalizedName( $this->projectStructure[ 'source_language' ] ) ) {
+                    if ( $found and $result['data'][ 'source_lang' ] == $this->langService->getLocalizedName( $this->projectStructure[ 'source_language' ] ) ) {
                         //the TMX is good to go
                         $this->checkTMX = 0;
                     }
+
                 }
+
             }
+
         }
 
         if ( 1 == $this->checkTMX ) {
             //this means that noone of uploaded TMX were usable for this project. Warn the user.
             $this->projectStructure[ 'result' ][ 'errors' ][ ] = array(
-                    "code" => -16, "message" => "No usable segment found in TMXs for the language pairs of this project"
+                    "code" => -16, "message" => "The TMX did not contain any usable segment. Check that the languages in the TMX file match the languages of your project."
             );
+
+            Log::doLog( $this->projectStructure['result'] );
 
             return false;
         }
@@ -505,9 +559,28 @@ class ProjectManager {
             return false;
         }
 
-        self::_deleteDir( $uploadDir );
-        if ( is_dir( $uploadDir . '_converted' ) ) {
-            self::_deleteDir( $uploadDir . '_converted' );
+        try {
+
+            Utils::deleteDir( $uploadDir );
+            if ( is_dir( $uploadDir . '_converted' ) ) {
+                Utils::deleteDir( $uploadDir . '_converted' );
+            }
+
+        } catch( Exception $e ){
+
+            $output = "<pre>\n";
+            $output .=  " - Exception: " . print_r( $e->getMessage(), true ) . "\n";
+            $output .=  " - REQUEST URI: " . print_r( @$_SERVER['REQUEST_URI'], true ) . "\n";
+            $output .=  " - REQUEST Message: " . print_r( $_REQUEST, true ) . "\n";
+            $output .=  " - Trace: \n" . print_r( $e->getTraceAsString(), true ) . "\n";
+            $output .=  "\n\t";
+            $output .=  "Aborting...\n";
+            $output .= "</pre>";
+
+            Log::doLog( $output );
+
+            Utils::sendErrMailReport( $output, $e->getMessage() );
+
         }
 
         $this->projectStructure[ 'status' ] = ( INIT::$VOLUME_ANALYSIS_ENABLED ) ? Constants_ProjectStatus::STATUS_NEW : Constants_ProjectStatus::STATUS_NOT_TO_ANALYZE;
@@ -555,7 +628,7 @@ class ProjectManager {
 
         $update_project_count = sprintf(
                 $update_project_count,
-                $project_summary[0]['project_raw_wordcount'],
+                $project_summary[ 0 ][ 'project_raw_wordcount' ],
                 $this->projectStructure[ 'status' ],
                 $this->projectStructure[ 'id_project' ]
         );
@@ -564,11 +637,19 @@ class ProjectManager {
 
 //    var_dump($this->projectStructure);
 //        exit;
+
     }
 
     protected function _createJobs( ArrayObject $projectStructure, $owner ) {
 
         foreach ( $projectStructure[ 'target_language' ] as $target ) {
+
+            //shorten languages and get payable rates
+            $shortSourceLang = substr( $projectStructure[ 'source_language' ], 0, 2 );
+            $shortTargetLang = substr( $target, 0, 2 );
+
+            //get payable rates
+            $projectStructure[ 'payable_rates' ] = CatUtils::getPayableRates( $shortSourceLang, $shortTargetLang );
 
             $query_min_max = "SELECT MIN( id ) AS job_first_segment , MAX( id ) AS job_last_segment
                 FROM segments WHERE id_file IN ( %s )";
@@ -589,20 +670,28 @@ class ProjectManager {
             $password = $this->_generatePassword();
 
             $tm_key = array();
-            //TODO Refactory in phase 2 for multiple keys
+
             if ( !empty( $projectStructure[ 'private_tm_key' ] ) ) {
-                $newTmKey = TmKeyManagement_TmKeyManagement::getTmKeyStructure();
+                foreach ( $projectStructure[ 'private_tm_key' ] as $tmKeyObj ) {
+                    $newTmKey = TmKeyManagement_TmKeyManagement::getTmKeyStructure();
 
-                $newTmKey->tm    = true;
-                $newTmKey->glos  = true;
-                $newTmKey->owner = true;
-                $newTmKey->name  = '';
-                $newTmKey->key   = $projectStructure[ 'private_tm_key' ];
-                $newTmKey->r     = true;
-                $newTmKey->w     = true;
+                    $newTmKey->tm    = true;
+                    $newTmKey->glos  = true;
+                    $newTmKey->owner = true;
+                    $newTmKey->name  = $tmKeyObj[ 'name' ];
+                    $newTmKey->key   = $tmKeyObj[ 'key' ];
+                    $newTmKey->r     = $tmKeyObj[ 'r' ];
+                    $newTmKey->w     = $tmKeyObj[ 'w' ];
 
+                    $tm_key[ ] = $newTmKey;
+                }
 
-                $tm_key[ ] = $newTmKey;
+                //TODO: change this: private tm key field should not be used
+                //set private tm key string to the first tm_key for retro-compatibility
+
+                Log::doLog( $projectStructure[ 'private_tm_key' ] );
+
+//                $projectStructure[ 'private_tm_key' ] = $projectStructure[ 'private_tm_key' ][ 0 ][ 'key' ];
             }
 
             $projectStructure[ 'tm_keys' ] = json_encode( $tm_key );
@@ -633,6 +722,10 @@ class ProjectManager {
 
     }
 
+    /**
+     * This function executes a language detection call to mymemory for an array of segments,
+     * located in projectStructure
+     */
     private function validateFilesLanguages() {
         /**
          * @var $filesSegments RecursiveArrayObject
@@ -650,7 +743,7 @@ class ProjectManager {
         $filename2SourceLangCheck = array();
 
         //istantiate MyMemory analyzer and detect languages for each file uploaded
-        $mma = new MyMemoryAnalyzer();
+        $mma = new MyMemoryAnalyzer( 1 /* MyMemory */ );
         $res = $mma->detectLanguage( $filesSegments, $this->projectStructure[ 'lang_detect_files' ] );
 
         //for each language detected, check if it's not equal to the source language
@@ -669,7 +762,7 @@ class ProjectManager {
                 //get language code
                 if ( strpos( $fileLang, "-" ) === false ) {
                     //PHP Strict: Only variables should be passed by reference
-                    $_tmp = explode( "-", $this->projectStructure[ 'source_language' ] );
+                    $_tmp       = explode( "-", $this->projectStructure[ 'source_language' ] );
                     $sourceLang = array_shift( $_tmp );
                 } else {
                     $sourceLang = $this->projectStructure[ 'source_language' ];
@@ -773,7 +866,7 @@ class ProjectManager {
 
         $query = sprintf( $query,
                 $projectStructure[ 'job_to_split' ],
-                $projectStructure[ 'job_to_split_pass' ]
+                $this->dbHandler->escape( $projectStructure[ 'job_to_split_pass' ] )
         );
 
         $rows = $this->dbHandler->fetch_array( $query );
@@ -822,9 +915,9 @@ class ProjectManager {
                 );
             }
 
-            $counter[ $chunk ][ 'eq_word_count' ]  += $row[ 'eq_word_count' ];
+            $counter[ $chunk ][ 'eq_word_count' ] += $row[ 'eq_word_count' ];
             $counter[ $chunk ][ 'raw_word_count' ] += $row[ 'raw_word_count' ];
-            $counter[ $chunk ][ 'segment_end' ]     = $row[ 'id' ];
+            $counter[ $chunk ][ 'segment_end' ] = $row[ 'id' ];
 
             //if last_opened segment is not set and if that segment can be showed in cattool
             //set that segment as the default last visited
@@ -1330,10 +1423,6 @@ class ProjectManager {
 
     }
 
-    protected function _generatePassword( $length = 12 ) {
-        return CatUtils::generate_password( $length );
-    }
-
     protected function _strip_external( $a ) {
         $a               = str_replace( "\n", " NL ", $a );
         $pattern_x_start = '/^(\s*<x .*?\/>)(.*)/mis';
@@ -1395,24 +1484,6 @@ class ProjectManager {
         return $r;
     }
 
-    protected static function _deleteDir( $dirPath ) {
-        return true;
-        $iterator = new DirectoryIterator( $dirPath );
-
-        foreach ( $iterator as $fileInfo ) {
-            if ( $fileInfo->isDot() ) {
-                continue;
-            }
-            if ( $fileInfo->isDir() ) {
-                self::_deleteDir( $fileInfo->getPathname() );
-            } else {
-                unlink( $fileInfo->getPathname() );
-            }
-        }
-        rmdir( $iterator->getPath() );
-
-    }
-
     public static function getExtensionFromMimeType( $mime_type ) {
 
         $reference = include( 'mime2extension.inc.php' );
@@ -1428,22 +1499,6 @@ class ProjectManager {
 
     }
 
-    protected function _sanitizeName( $nameString ) {
-
-        $nameString = preg_replace( '/[^\p{L}0-9a-zA-Z_\.\-]/u', "_", $nameString );
-        $nameString = preg_replace( '/[_]{2,}/', "_", $nameString );
-        $nameString = str_replace( '_.', ".", $nameString );
-
-        // project name validation
-        $pattern = '/^[\p{L}\ 0-9a-zA-Z_\.\-]+$/u';
-
-        if ( !preg_match( $pattern, $nameString, $rr ) ) {
-            return false;
-        }
-
-        return $nameString;
-
-    }
 
     /**
      * Extract internal reference base64 files
@@ -1530,6 +1585,31 @@ class ProjectManager {
         }
 
 
+    }
+
+    protected function _sanitizeName( $nameString ) {
+
+        $nameString = preg_replace( '/[^\p{L}0-9a-zA-Z_\.\-]/u', "_", $nameString );
+        $nameString = preg_replace( '/[_]{2,}/', "_", $nameString );
+        $nameString = str_replace( '_.', ".", $nameString );
+
+        // project name validation
+        $pattern = '/^[\p{L}\ 0-9a-zA-Z_\.\-]+$/u';
+
+        if ( !preg_match( $pattern, $nameString, $rr ) ) {
+            return false;
+        }
+
+        return $nameString;
+
+    }
+
+    protected function _generatePassword( $length = 12 ) {
+        return CatUtils::generate_password( $length );
+    }
+
+    private function sortByStrLenAsc( $a, $b ) {
+        return strlen( $a ) >= strlen( $b );
     }
 
 }

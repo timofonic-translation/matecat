@@ -51,6 +51,7 @@ class ManageUtils {
             $job[ 'password' ]              = $job_array[ 'password' ];
             $job[ 'source' ]                = $job_array[ 'source' ];
             $job[ 'target' ]                = $job_array[ 'target' ];
+            $job[ 'subject' ]                = $job_array[ 'subject' ];
             $job[ 'sourceTxt' ]             = $lang_handler->getLocalizedName( $job[ 'source' ] );
             $job[ 'targetTxt' ]             = $lang_handler->getLocalizedName( $job[ 'target' ] );
             $job[ 'create_date' ]           = $job_array[ 'create_date' ];
@@ -88,8 +89,8 @@ class ManageUtils {
                  */
                 $tm_keys[ ] = array(
                         "key" => $tm_key_struct->key,
-                        "r"   => ( $tm_key_struct->r ) ? 'read' : '&nbsp;',
-                        "w"   => ( $tm_key_struct->w ) ? 'write' : ''
+                        "r"   => ( $tm_key_struct->r ) ? 'Lookup' : '&nbsp;',
+                        "w"   => ( $tm_key_struct->w ) ? 'Update' : ''
                 );
             }
 

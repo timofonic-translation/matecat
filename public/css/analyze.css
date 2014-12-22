@@ -822,13 +822,16 @@ footer a:hover{text-decoration:none}
 }
 
 .outsource.modal .popup {
-	top: 30%;
+top: 25%;
 }
 .chunks-container
 {
 	max-height: 250px;
 	overflow: auto;
 }
+
+
+
 /* retina display query */
 @media only screen and (-webkit-min-device-pixel-ratio: 2),
 only screen and (min--moz-device-pixel-ratio: 2),
